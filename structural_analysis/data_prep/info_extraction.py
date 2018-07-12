@@ -20,7 +20,9 @@ def parse_file(path, output_path):
         start, end=ds2.match(current_point[0])
         label=determine_label(start, end, index)
         data_second_pass.append([label, current_point[1], current_point[2], current_point[3]])
-    thefile=open('test.txt','w')
+    output_path+=path[-5:-1]
+    output_path+=".txt"
+    thefile=open(output_path,'w')
     for point in data_second_pass:
         thefile.write("%10s %10s %10s %10s \n" % (point[0], point[1], point[2], point[3]))
     thefile.close()
@@ -100,5 +102,5 @@ class DataSolverPass2():
         else:
             return (-1,-1)
 
-p="/Users/joker/Downloads/data/0003/"
-parse_file(p, p)
+#p="/Users/joker/Downloads/data/0003/"
+#parse_file(p, "/Users/joker/data/")
