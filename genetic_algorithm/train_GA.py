@@ -27,5 +27,13 @@ def compute_reward_fitness(env, member, n_episodes, max_steps):
     for i in range(n_episode):
         observation=env.reset()
         for t in range(max_steps):
+            ob=torch.from_numpy(observation).float().unsqueeze(0).detach()
+            action, log_prob=member.run(ob)
+            observation, reward, done, info=env.step(action)
+            fitness+=reward
+            if done:
+                break
+    return fitness/n_episode
 
-
+def compute_novelty_fitness(member, archive):
+    return archive.policy_space_distance(member)

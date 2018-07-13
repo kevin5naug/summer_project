@@ -22,6 +22,7 @@ import random
 class Member(nn.Module):
     def __init__(self, inputdim, outputdim, n_layers, hiddendim, activation, output_activation):
         super(Member, self).__init__()
+        self.score=-99999
         if (output_activation==None):
             self.original_output=True
         else:
@@ -65,6 +66,8 @@ class Member(nn.Module):
         action=d.sample()
         log_prob=d.log_prob(action)
         return action, log_prob
+    def setScore(self, score):
+        self.score=score
     def get_params(self):
         return [(k,v) for k,v in zip(self.state_dict().keys(), self.state_dict().values())]
 
@@ -130,7 +133,7 @@ def build_mlp(
         print("continuous-type member activated.")
         return Member_continuous(input_size, output_size, n_layers, size, activation, output_activation)
 
-def perturb_member(member, sigma, random_seed, input_size, output_size,\
+def perturb_member(member, sigma, input_size, output_size,\
         n_layers=2, size=64, activation=torch.nn.functional.tanh,\
         output_activation=None, discrete=True):
     
@@ -138,7 +141,6 @@ def perturb_member(member, sigma, random_seed, input_size, output_size,\
     anti_new_member=build_mlp(input_size, output_size, n_layers, size, activation, output_activation, discrete)
     new_member.load_state_dict(member.state_dict())
     anti_new_member.load_state_dict(member.state_dict())
-    np.random.seed(random_seed)
     for(k,v), (anti_k, anti_v) in zip(new_model.get_params(), anti_model.get_params()):
         eps=np.random.normal(0,1,v.size())
         v+=torch.from_numpy(sigma*eps).float()
