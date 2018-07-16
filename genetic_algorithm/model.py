@@ -1,11 +1,9 @@
 import numpy as np
 import tensorflow as tf
 import gym
-import logz
 import scipy.signal
 import os
 import time
-import inspect
 from multiprocessing import Process
 
 import torch
@@ -19,9 +17,9 @@ from torch.distributions import Categorical
 from torch.distributions.multivariate_normal import MultivariateNormal
 import random
 
-class Member(nn.Module):
+class Member_discrete(nn.Module):
     def __init__(self, inputdim, outputdim, n_layers, hiddendim, activation, output_activation):
-        super(Member, self).__init__()
+        super(Member_discrete, self).__init__()
         self.score=-99999
         if (output_activation==None):
             self.original_output=True
@@ -55,7 +53,6 @@ class Member(nn.Module):
                     x=self.output_activation(x)
                     return x
     def run(self, x):
-        x=Variable(x)
         p=self(x)
         if self.original_output:
             d=Categorical(logits=p)
@@ -119,23 +116,21 @@ class Member_continuous(nn.Module):
 def build_mlp(
         input_size, 
         output_size, 
-        n_layers=2, 
-        size=64, 
-        activation=torch.nn.functional.tanh,
-        output_activation=None,
-        discrete=True
+        n_layers, 
+        size, 
+        activation,
+        output_activation,
+        discrete
         ):
     
     if discrete:
-        print("discrete-type member activated.")
         return Member_discrete(input_size, output_size, n_layers, size, activation, output_activation)
     else:
-        print("continuous-type member activated.")
         return Member_continuous(input_size, output_size, n_layers, size, activation, output_activation)
 
 def perturb_member(member, sigma, input_size, output_size,\
-        n_layers=2, size=64, activation=torch.nn.functional.tanh,\
-        output_activation=None, discrete=True):
+        n_layers, size, activation,\
+        output_activation, discrete):
     
     new_member=build_mlp(input_size, output_size, n_layers, size, activation, output_activation, discrete)
     anti_new_member=build_mlp(input_size, output_size, n_layers, size, activation, output_activation, discrete)

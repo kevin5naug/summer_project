@@ -1,11 +1,9 @@
 import numpy as np
 import tensorflow as tf
 import gym
-import logz
 import scipy.signal
 import os
 import time
-import inspect
 from multiprocessing import Process
 
 import torch
@@ -20,10 +18,11 @@ from torch.distributions.multivariate_normal import MultivariateNormal
 import random
 
 class Archive():
-    def __init__(self):
+    def __init__(self, prob):
         self.saved_member_list=[]
-    def save(self, member, prob=0.05):
-        if random.random()<=prob:
+        self.prob=prob
+    def save(self, member):
+        if random.random()<=self.prob:
             self.saved_member_list.append(member)
     def policy_space_distance(self, target, p_norm=2):
         min_dist=-1
