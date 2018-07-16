@@ -66,6 +66,8 @@ class Member_discrete(nn.Module):
 class Member_continuous(nn.Module):
     def __init__(self, inputdim, outputdim, n_layers, hiddendim, activation, output_activation):
         super(Member_continuous, self).__init__()
+        self.score=-99999
+        self.reward_score=-99999
         if (output_activation==None):
             self.original_output=True
         else:
@@ -105,6 +107,8 @@ class Member_continuous(nn.Module):
         action=d.sample().detach()
         log_prob=d.log_prob(action).sum(1).view(-1,1)
         return action, log_prob
+    def setScore(self, score):
+        self.score=score
     def get_params(self):
         return [(k,v) for k,v in zip(self.state_dict().keys(), self.state_dict().values())]
 
@@ -191,7 +195,7 @@ def get_init_population(n, input_size, output_size, n_layers, size, activation, 
         member_list.append(build_mlp(input_size, output_size, n_layers, size, activation, output_activation, discrete))
     return member_list
 
-def train_ga(env_name='CartPole-v0', n_exp=1, prob_save=0.05, n_gen=100, gamma=5e-2, sigma=0.1, pop_size=100, fitness_eval_episodes=50, max_steps=None, n_elite=20, seed=1, n_layers=1, size=32, network_activation='tanh', output_activation='tanh'):
+def train_ga(env_name='HalfCheetah-v2', n_exp=1, prob_save=0.05, n_gen=100, gamma=0.5, sigma=0.05, pop_size=50, fitness_eval_episodes=40, max_steps=150, n_elite=20, seed=1, n_layers=1, size=32, network_activation='tanh', output_activation=None):
     torch.manual_seed(seed)
     np.random.seed(seed)
     env=gym.make(env_name)
