@@ -52,6 +52,7 @@ def plot_data(data, value="AverageReturn", title="Experiment"):
     if isinstance(data, list):
         data = pd.concat(data, ignore_index=True)
     sns.set(style="darkgrid", font_scale=1.5)
+    print(data)
     sns.tsplot(data=data, time="Iteration", value=value, unit="Unit", condition="Condition")
     plt.legend(loc='best').draggable()
     plt.title(title)
