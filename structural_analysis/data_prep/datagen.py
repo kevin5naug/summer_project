@@ -58,8 +58,6 @@ def parse_file(path, output_path):
     for index in range(len(data_second_pass)):
         current_point=data_second_pass[index]
         label, char, begin_t, end_t=current_point[0], current_point[1], current_point[2], current_point[3]
-        begin_t=float(format(begin_t-normalize_t1+normalize_t2, '.3f'))
-        end_t=float(format(end_t-normalize_t1+normalize_t2, '.3f'))
         ds3.match(begin_t, end_t, char, label)
     ds3.mark_the_rest()
     for index in range(len(ds3.note_sequence)):
