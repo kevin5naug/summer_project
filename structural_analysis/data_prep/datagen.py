@@ -70,7 +70,7 @@ def parse_file(path, output_path):
     output_path+=".txt"
     thefile=open(output_path,'w')
     for point in data_third_pass:
-        thefile.write("%10s %10s %10s %10s %10s\n" % (point[0], point[1], point[2], point[3], point[4]))
+        thefile.write("%s %s %s %s %s\n" % (point[0], point[1], point[2], point[3], point[4]))
     thefile.close()
 
 def extract_info(line):
