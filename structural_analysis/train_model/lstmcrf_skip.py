@@ -240,14 +240,13 @@ class BiLSTM_CRF(nn.Module):
 import pickle
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # load data from file
-SEQ_LEN=13
+SEQ_LEN=80
 BATCH_SIZE=64
-with open("/Users/joker/toy_data.pkl", "rb") as f:
+with open("/Users/joker/pitch_data_processed.pkl", "rb") as f:
     dic = pickle.load(f)
     train_X = dic["X"]
     train_Y = dic["Y"]
 
-train_X, train_Y = input_transform(train_X, train_Y)
 train_X = torch.tensor(train_X)
 train_Y = torch.tensor(train_Y)
 train_set=data_utils.TensorDataset(train_X, train_Y)
@@ -260,8 +259,8 @@ print(len(train_X))
 print(train_X[0])
 
 CLIP = 10
-input_dim=3
-output_size=4
+input_dim=2
+output_size=60
 START_TAG=output_size-2
 STOP_TAG=output_size-1
 hidden_dim=512

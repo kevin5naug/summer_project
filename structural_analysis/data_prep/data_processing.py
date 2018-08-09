@@ -3,6 +3,7 @@ import os
 import shutil
 import numpy as np
 import pickle as pl
+import torch
 
 s = "/Users/Fischer/NYU/MusicStructuralAnalysis_Project/Music_data/"
 t = "/Users/Fischer/NYU/MusicStructuralAnalysis_Project/good_data/"
@@ -70,13 +71,13 @@ def pitch2numpy(file_dir):
             if t != '' and t != '\n':
                 target.append(t)
         max_len=max(max_len, int(target[4]))
-        train_x.append([float(target[0]), float(target[1]), float(target[2])])
+        train_x.append([float(target[1])-float(target[0]), float(target[2])])
         train_y.append([int(target[4])])
         #print(target[1], target[0])
     target_file.close()
     return train_x, train_y, max_len
 
-
+"""
 def prepare_data():
     dir = "/Users/Fischer/NYU/MusicStructuralAnalysis_Project/data"
     target_dir = os.listdir(dir)
@@ -93,7 +94,7 @@ def prepare_data():
     print(train_X.shape, train_Y.shape, time_X.shape)
 
 
-"""
+
 def prepare_input():
     dir = "/Users/Fischer/NYU/MusicStructuralAnalysis_Project/data"
     target_dir = os.listdir(dir)
@@ -125,7 +126,6 @@ def prepare_input():
     f = open("data.pkl", "wb")
     pl.dump(dic, f)
     f.close()
-"""
 
 
 def find_max_length(train_X):
@@ -133,6 +133,46 @@ def find_max_length(train_X):
     for i in range(train_X.shape[0]):
         max_length = max(max_length, train_X[i].shape[0])
     return max_length
+"""
+
+def pad(vector, pad, dim=0):
+    pad_size=list(vector.shape)
+    #print(pad_size)
+    pad_size[dim]=pad-vector.size(dim)
+    #print(pad_size[dim])
+    if pad_size[dim]<0:
+        print("FATAL ERROR: pad_size=100 not enough!")
+    return torch.cat([vector, torch.zeros(*pad_size).type(vector.type())], dim=dim)
+
+def target_factorize(train_X, train_Y, pad_size=80):
+    train_X_new=[]
+    train_Y_new=[]
+    for i, target in enumerate(train_Y):
+        one_list=[]
+        loc=0
+        for label in target:
+            if(int(label[0])==1):
+                one_list.append(loc)
+            loc=loc+1
+        prev=0
+        #print(one_list)
+        for j in range(2, len(one_list), 3):
+            x_new=torch.from_numpy(train_X[i][prev:one_list[j]+1])
+            y_new=torch.from_numpy(train_Y[i][prev:one_list[j]+1].reshape(-1))
+            #print(x_new.size())
+            train_X_new.append(pad(x_new, pad_size))
+            train_Y_new.append(pad(y_new, pad_size))
+            prev=one_list[j]+1
+        if j!=len(one_list)-1:
+            x_new=torch.from_numpy(train_X[i][prev:])
+            y_new=torch.from_numpy(train_Y[i][prev:].reshape(-1))
+            #print(x_new.size())
+            train_X_new.append(pad(x_new, pad_size))
+            train_Y_new.append(pad(y_new, pad_size))
+    train_X_new=torch.stack(train_X_new)
+    train_Y_new=torch.stack(train_Y_new)
+    return train_X_new, train_Y_new
+
 
 
 
@@ -150,10 +190,10 @@ def pitch_data():
         max_seq=max(max_seq, max_len)
         train_X.append(np.array(train_x))
         train_Y.append(np.array(train_y))
-    train_X, train_Y= np.array(train_X), np.array(train_Y)
-    print(train_X.shape, train_Y.shape)
+    train_X, train_Y= target_factorize(train_X, train_Y)
+    print(train_X.size(), train_Y.size())
     dic = {"X": train_X, "Y": train_Y}
-    f = open("pitch_data.pkl", "wb")
+    f = open("/Users/joker/pitch_data_processed.pkl", "wb")
     pl.dump(dic, f)
     f.close()
     print(max_seq)
@@ -161,5 +201,3 @@ def pitch_data():
 
 
 train_X, train_Y= pitch_data()
-max_length = find_max_length(train_X)
-print(max_length)
