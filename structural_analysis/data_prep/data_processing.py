@@ -63,16 +63,18 @@ def pitch2numpy(file_dir):
     content = target_file.readlines()
     train_y = []
     train_x = []
+    max_len=0
     for num, lines in enumerate(content):
         target = []
         for t in lines.split(" "):
             if t != '' and t != '\n':
                 target.append(t)
+        max_len=max(max_len, int(target[4]))
         train_x.append([float(target[0]), float(target[1]), float(target[2])])
         train_y.append([int(target[4])])
         #print(target[1], target[0])
     target_file.close()
-    return train_x, train_y
+    return train_x, train_y, max_len
 
 
 def prepare_data():
@@ -139,11 +141,13 @@ def pitch_data():
     target_dir = os.listdir(pitch_dir)
     train_X = []
     train_Y = []
+    max_seq = 0
     for i in range(len(target_dir)):
         if target_dir[i].split(".")[-1] != "txt":
             continue
         file_dir = pitch_dir + "/" + target_dir[i]
-        train_x, train_y= pitch2numpy(file_dir)
+        train_x, train_y, max_len= pitch2numpy(file_dir)
+        max_seq=max(max_seq, max_len)
         train_X.append(np.array(train_x))
         train_Y.append(np.array(train_y))
     train_X, train_Y= np.array(train_X), np.array(train_Y)
@@ -152,6 +156,7 @@ def pitch_data():
     f = open("pitch_data.pkl", "wb")
     pl.dump(dic, f)
     f.close()
+    print(max_seq)
     return train_X, train_Y
 
 
