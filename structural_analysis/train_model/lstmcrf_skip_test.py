@@ -221,6 +221,8 @@ class BiLSTM_CRF(nn.Module):
         start = best_path.pop()
         assert start[0] == START_TAG  # Sanity check
         best_path.reverse()
+        best_path=np.concatenate(best_path, 0).reshape(SEQ_LEN, BATCH_SIZE, -1)
+        best_path=np.transpose(best_path, (1,0,2))
         return path_score, best_path
 
     def neg_log_likelihood(self, sentence, tags):
@@ -238,51 +240,18 @@ class BiLSTM_CRF(nn.Module):
         return score, tag_seq
 
 import pickle
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device=torch.device("cpu")
 # load data from file
-SEQ_LEN=13
+SEQ_LEN=80
 BATCH_SIZE=2
-with open("/Users/joker/toy_data.pkl", "rb") as f:
+with open("/home/yixing/pitch_data_processed.pkl", "rb") as f:
     dic = pickle.load(f)
     train_X = dic["X"]
     train_Y = dic["Y"]
 
-def input_transform(train_x, time_x, i):
-    output = torch.from_numpy(np.array([train_x[i], time_x[i]]))
-    return output.transpose(1, 0).to(device)
-
-def input_factorize(train_x):
-    output = []
-    content=np.array_split(train_x, len(train_x)/SEQ_LEN)
-    for index in range(len(content)):
-        if (len(content[index]))<(SEQ_LEN+1):
-            output.append(content[index])
-    return output
-
-def target_factorize(train_y):
-    output = []
-    content=np.array_split(train_y, len(train_y)/SEQ_LEN)
-    for index in range(len(content)):
-        if (len(content[index]))<(SEQ_LEN+1):
-            output.append(content[index])
-    return output
-
-def target_transform(train_y):
-    output = torch.zeros((1, 2))
-    output[0, int(train_y)] = 1
-    return output.unsqueeze(1).to(device)
-
-def showPlot(points):
-    plt.figure()
-    fig, ax = plt.subplots()
-    # this locator puts ticks at regular intervals
-    loc = ticker.MultipleLocator(base=0.2)
-    ax.yaxis.set_major_locator(loc)
-    plt.plot(points)
-
-train_X = input_factorize(train_X)
 train_X = torch.tensor(train_X)
-train_Y = torch.tensor(target_factorize(train_Y))
+train_Y = torch.tensor(train_Y)
 train_set=data_utils.TensorDataset(train_X[0:BATCH_SIZE], train_Y[0:BATCH_SIZE])
 train_loader=data_utils.DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=True)
 
@@ -290,11 +259,11 @@ train_loader=data_utils.DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shu
 
 
 print(len(train_X))
-print(train_X[0])
+#print(train_X[0])
 
-CLIP = 5
-input_dim=3
-output_size=4
+CLIP = 10
+input_dim=2
+output_size=60
 START_TAG=output_size-2
 STOP_TAG=output_size-1
 hidden_dim=512
@@ -313,15 +282,19 @@ model = BiLSTM_CRF(input_dim, hidden_dim, output_size, START_TAG, STOP_TAG, BATC
 model.load_state_dict(torch.load('lstmcrf_train.pt'))
 model.eval()
 for i, (X_train, y_train) in enumerate(train_loader):
-     X_train=X_train.reshape(SEQ_LEN,BATCH_SIZE,input_dim).float().to(device)
-     y_train=y_train.reshape(SEQ_LEN,BATCH_SIZE,).long().to(device)
+     print(X_train, y_train)
+     #X_train=X_train.reshape(SEQ_LEN,BATCH_SIZE,input_dim).float().to(device)
+     X_train=X_train.transpose(0,1).float().contiguous().to(device)
+     y_train=y_train.transpose(0,1).long().contiguous().to(device)
      if(i>5):
         break
      else:
         scores, path=model(X_train)
-        print(scores)
-        prediction=torch.from_numpy(np.concatenate(path, 0).reshape(SEQ_LEN, BATCH_SIZE))
+        print(X_train, "X_train")
+        print(scores, "scores")
+        #prediction=path.transpose(0,1).cpu().long().contiguous()
         #print(model(X_train), "hello")
-        print(prediction)
-        print(y_train)
+        prediction=path
+        print(prediction, "prediction")
+        print(y_train, "y_train")
 # We got it!

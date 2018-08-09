@@ -157,12 +157,12 @@ def target_factorize(train_X, train_Y, pad_size=80):
         prev=0
         #print(one_list)
         for j in range(2, len(one_list), 3):
-            x_new=torch.from_numpy(train_X[i][prev:one_list[j]+1])
-            y_new=torch.from_numpy(train_Y[i][prev:one_list[j]+1].reshape(-1))
+            x_new=torch.from_numpy(train_X[i][prev:one_list[j]])
+            y_new=torch.from_numpy(train_Y[i][prev:one_list[j]].reshape(-1))
             #print(x_new.size())
             train_X_new.append(pad(x_new, pad_size))
             train_Y_new.append(pad(y_new, pad_size))
-            prev=one_list[j]+1
+            prev=one_list[j]
         if j!=len(one_list)-1:
             x_new=torch.from_numpy(train_X[i][prev:])
             y_new=torch.from_numpy(train_Y[i][prev:].reshape(-1))

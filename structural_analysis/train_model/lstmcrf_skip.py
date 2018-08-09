@@ -238,11 +238,12 @@ class BiLSTM_CRF(nn.Module):
         return score, tag_seq
 
 import pickle
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device=0
 # load data from file
 SEQ_LEN=80
 BATCH_SIZE=2
-with open("/Users/joker/pitch_data_processed.pkl", "rb") as f:
+with open("/home/yixing/pitch_data_processed.pkl", "rb") as f:
     dic = pickle.load(f)
     train_X = dic["X"]
     train_Y = dic["Y"]
@@ -282,14 +283,15 @@ optimizer = optim.Adam(model.parameters(), lr=1e-3)
 #scheduler = optim.lr_scheduler.StepLR(optimizer, 1)
 
 # Make sure prepare_sequence from earlier in the LSTM section is loaded
-for epoch in range(500):  # again, normally you would NOT do 300 epochs, it is toy data
+for epoch in range(50):  # again, normally you would NOT do 300 epochs, it is toy data
     print("epoch %i"%epoch)
     #scheduler.step()
     for i, (X_train, y_train) in enumerate(train_loader):
         # Step 1. Remember that Pytorch accumulates gradients.
         # We need to clear them out before each instance
-        X_train=X_train.reshape(SEQ_LEN,BATCH_SIZE,input_dim).float().to(device)
-        y_train=y_train.reshape(SEQ_LEN,BATCH_SIZE,).long().to(device)
+        X_train=X_train.transpose(0,1).float().contiguous().to(device)
+        y_train=y_train.transpose(0,1).long().contiguous().to(device)
+        print(X_train, y_train)
         model.zero_grad()
 
         # Step 2. Get our inputs ready for the network, that is,
