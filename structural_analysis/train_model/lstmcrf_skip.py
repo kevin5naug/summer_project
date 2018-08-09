@@ -241,7 +241,7 @@ import pickle
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # load data from file
 SEQ_LEN=80
-BATCH_SIZE=64
+BATCH_SIZE=2
 with open("/Users/joker/pitch_data_processed.pkl", "rb") as f:
     dic = pickle.load(f)
     train_X = dic["X"]
@@ -249,8 +249,8 @@ with open("/Users/joker/pitch_data_processed.pkl", "rb") as f:
 
 train_X = torch.tensor(train_X)
 train_Y = torch.tensor(train_Y)
-train_set=data_utils.TensorDataset(train_X, train_Y)
-train_loader=data_utils.DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=True)
+train_set=data_utils.TensorDataset(train_X[0:2], train_Y[0:2])
+train_loader=data_utils.DataLoader(dataset=train_set, batch_size=BATCH_SIZE, drop_last=True, shuffle=True)
 
 # In[92]:
 
