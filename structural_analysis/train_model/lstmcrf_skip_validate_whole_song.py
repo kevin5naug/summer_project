@@ -242,8 +242,6 @@ import pickle
 device=torch.device("cpu")
 # load data from file
 INDEX=0
-BATCH_SIZE=1
-
 with open("/home/yixing/pitch_data_validate.pkl", "rb") as f:
     dic = pickle.load(f)
     train_X = dic["X"]
@@ -251,9 +249,8 @@ with open("/home/yixing/pitch_data_validate.pkl", "rb") as f:
 
 train_X = torch.tensor(train_X[INDEX])
 train_Y = torch.tensor(train_Y[INDEX])
-train_set=data_utils.TensorDataset(train_X, train_Y)
-train_loader=data_utils.DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=False)
-SEQ_LEN=80
+SEQ_LEN=train_X.size()[0]
+BATCH_SIZE=1
 
 # In[92]:
 
@@ -281,22 +278,18 @@ label1=torch.tensor(truth1, dtype=torch.long)
 model = BiLSTM_CRF(input_dim, hidden_dim, output_size, START_TAG, STOP_TAG, BATCH_SIZE).to(device)
 model.load_state_dict(torch.load('lstmcrf_train3.pt'))
 model.eval()
-for i, (X_train, y_train) in enumerate(train_loader):
-    #print(X_train, y_train)
-    #X_train=X_train.reshape(SEQ_LEN,BATCH_SIZE,input_dim).float().to(device)
-    X_train=X_train.reshape(SEQ_LEN, BATCH_SIZE, -1).float().contiguous().to(device)
-    y_train=y_train.reshape(SEQ_LEN, BATCH_SIZE, -1).long().contiguous().to(device).reshape(SEQ_LEN,)
-    scores, path=model(X_train)
-    #print(X_train, "X_train")
-    #print(scores, "scores")
-    #prediction=path.transpose(0,1).cpu().long().contiguous()
-    #print(model(X_train), "hello")
-    prediction=torch.from_numpy(np.array(path)).reshape(SEQ_LEN,)
-    print(prediction, "prediction")
-    print(y_train, "y_train")
-    prediction=prediction.numpy()
-    y_train=y_train.numpy()
-    prediction[prediction>1]=0
-    prediction[y_train==0]=0
-
+X_train=train_X
+y_train=train_Y
+print(X_train, y_train)
+#X_train=X_train.reshape(SEQ_LEN,BATCH_SIZE,input_dim).float().to(device)
+X_train=X_train.reshape(SEQ_LEN, BATCH_SIZE, -1).float().contiguous().to(device)
+y_train=y_train.reshape(SEQ_LEN, BATCH_SIZE, -1).long().contiguous().to(device).reshape(SEQ_LEN, -1)
+scores, path=model(X_train)
+print(X_train, "X_train")
+print(scores, "scores")
+#prediction=path.transpose(0,1).cpu().long().contiguous()
+#print(model(X_train), "hello")
+prediction=torch.from_numpy(np.array(path)).reshape(SEQ_LEN,)
+print(prediction, "prediction")
+print(y_train, "y_train")
 # We got it!
