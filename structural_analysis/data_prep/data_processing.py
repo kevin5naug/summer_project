@@ -144,7 +144,7 @@ def pad(vector, pad, dim=0):
         print("FATAL ERROR: pad_size=100 not enough!")
     return torch.cat([vector, torch.zeros(*pad_size).type(vector.type())], dim=dim)
 
-def target_factorize(train_X, train_Y, pad_size=80):
+def target_factorize(train_X, train_Y, pad_size=100):
     train_X_new=[]
     train_Y_new=[]
     for i, target in enumerate(train_Y):
@@ -156,7 +156,7 @@ def target_factorize(train_X, train_Y, pad_size=80):
             loc=loc+1
         prev=0
         #print(one_list)
-        for j in range(2, len(one_list), 3):
+        for j in range(5, len(one_list), 5):
             x_new=torch.from_numpy(train_X[i][prev:one_list[j]])
             y_new=torch.from_numpy(train_Y[i][prev:one_list[j]].reshape(-1))
             #print(x_new.size())

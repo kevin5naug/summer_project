@@ -75,7 +75,12 @@ class BiLSTM_CRF(nn.Module):
         # to the start tag and we never transfer from the stop tag
         self.transitions.data[START_TAG, :] = -10000
         self.transitions.data[:, STOP_TAG] = -10000
-
+        for i in range(2, self.output_size):
+            for j in range(2, self.output_size):
+                if j<=i:
+                    self.transitions.data[j,i]=-10000
+                if j>=(i+2):
+                    self.transitions.data[j,i]=-10000
 
         self.hidden1 = self.init_hidden()
         self.hidden2 = self.init_hidden()
@@ -241,7 +246,7 @@ import pickle
 #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device=0
 # load data from file
-SEQ_LEN=80
+SEQ_LEN=100
 BATCH_SIZE=64
 with open("/home/yixing/pitch_data_processed.pkl", "rb") as f:
     dic = pickle.load(f)
