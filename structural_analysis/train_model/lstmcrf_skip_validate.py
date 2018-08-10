@@ -219,10 +219,8 @@ class BiLSTM_CRF(nn.Module):
             best_path.append(best_tag_id)
         # Pop off the start tag (we dont want to return that to the caller)
         start = best_path.pop()
-        assert start[0] == START_TAG  # Sanity check
+        assert start == START_TAG  # Sanity check
         best_path.reverse()
-        best_path=np.concatenate(best_path, 0).reshape(SEQ_LEN, BATCH_SIZE, -1)
-        best_path=np.transpose(best_path, (1,0,2))
         return path_score, best_path
 
     def neg_log_likelihood(self, sentence, tags):
@@ -251,11 +249,8 @@ with open("/home/yixing/pitch_data_validate.pkl", "rb") as f:
 
 train_X = torch.tensor(train_X[INDEX])
 train_Y = torch.tensor(train_Y[INDEX])
-
 SEQ_LEN=train_X.size()[0]
 BATCH_SIZE=1
-train_set=data_utils.TensorDataset(train_X, train_Y)
-train_loader=data_utils.DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=True)
 
 # In[92]:
 
@@ -283,20 +278,18 @@ label1=torch.tensor(truth1, dtype=torch.long)
 model = BiLSTM_CRF(input_dim, hidden_dim, output_size, START_TAG, STOP_TAG, BATCH_SIZE).to(device)
 model.load_state_dict(torch.load('lstmcrf_train3.pt'))
 model.eval()
-for i, (X_train, y_train) in enumerate(train_loader):
-     print(X_train, y_train)
-     #X_train=X_train.reshape(SEQ_LEN,BATCH_SIZE,input_dim).float().to(device)
-     X_train=X_train.transpose(0,1).float().contiguous().to(device)
-     y_train=y_train.transpose(0,1).long().contiguous().to(device)
-     if(i>5):
-        break
-     else:
-        scores, path=model(X_train)
-        print(X_train, "X_train")
-        print(scores, "scores")
-        #prediction=path.transpose(0,1).cpu().long().contiguous()
-        #print(model(X_train), "hello")
-        prediction=torch.from_numpy(path)
-        print(prediction, "prediction")
-        print(y_train, "y_train")
+X_train=train_X
+y_train=train_Y
+print(X_train, y_train)
+#X_train=X_train.reshape(SEQ_LEN,BATCH_SIZE,input_dim).float().to(device)
+X_train=X_train.reshape(SEQ_LEN, BATCH_SIZE, -1).float().contiguous().to(device)
+y_train=y_train.reshape(SEQ_LEN, BATCH_SIZE, -1).long().contiguous().to(device).reshape(SEQ_LEN, -1)
+scores, path=model(X_train)
+print(X_train, "X_train")
+print(scores, "scores")
+#prediction=path.transpose(0,1).cpu().long().contiguous()
+#print(model(X_train), "hello")
+prediction=torch.from_numpy(np.array(path)).reshape(SEQ_LEN,)
+print(prediction, "prediction")
+print(y_train, "y_train")
 # We got it!
