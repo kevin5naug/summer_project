@@ -195,9 +195,8 @@ def pitch_data():
         file_dir = pitch_dir + "/" + target_dir[i]
         train_x, train_y, max_len= pitch2numpy(file_dir)
         max_seq=max(max_seq, max_len)
-        train_X.append(np.array(train_x))
-        train_Y.append(np.array(train_y))
-    train_X, train_Y=target_factorize(train_X, train_Y)
+        train_X.append(torch.from_numpy(np.array(train_x)))
+        train_Y.append(torch.from_numpy(np.array(train_y)))
     print(len(train_X), len(train_Y))
     dic = {"X": train_X, "Y": train_Y}
     f = open("/Users/joker/pitch_data_validate.pkl", "wb")
