@@ -242,7 +242,7 @@ import pickle
 device=0
 # load data from file
 SEQ_LEN=80
-BATCH_SIZE=2
+BATCH_SIZE=64
 with open("/home/yixing/pitch_data_processed.pkl", "rb") as f:
     dic = pickle.load(f)
     train_X = dic["X"]
@@ -250,7 +250,7 @@ with open("/home/yixing/pitch_data_processed.pkl", "rb") as f:
 
 train_X = torch.tensor(train_X)
 train_Y = torch.tensor(train_Y)
-train_set=data_utils.TensorDataset(train_X[0:2], train_Y[0:2])
+train_set=data_utils.TensorDataset(train_X, train_Y)
 train_loader=data_utils.DataLoader(dataset=train_set, batch_size=BATCH_SIZE, drop_last=True, shuffle=True)
 
 # In[92]:
@@ -283,7 +283,7 @@ optimizer = optim.Adam(model.parameters(), lr=1e-3)
 #scheduler = optim.lr_scheduler.StepLR(optimizer, 1)
 
 # Make sure prepare_sequence from earlier in the LSTM section is loaded
-for epoch in range(50):  # again, normally you would NOT do 300 epochs, it is toy data
+for epoch in range(30):  # again, normally you would NOT do 300 epochs, it is toy data
     print("epoch %i"%epoch)
     #scheduler.step()
     for i, (X_train, y_train) in enumerate(train_loader):
@@ -291,7 +291,7 @@ for epoch in range(50):  # again, normally you would NOT do 300 epochs, it is to
         # We need to clear them out before each instance
         X_train=X_train.transpose(0,1).float().contiguous().to(device)
         y_train=y_train.transpose(0,1).long().contiguous().to(device)
-        print(X_train, y_train)
+        #print(X_train, y_train)
         model.zero_grad()
 
         # Step 2. Get our inputs ready for the network, that is,
@@ -317,6 +317,8 @@ for epoch in range(50):  # again, normally you would NOT do 300 epochs, it is to
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP)
         optimizer.step()
+    name='lstmcrf_train'+str(epoch)+'.pt'
+    torch.save(model.state_dict(), name)
     torch.save(model.state_dict(),'lstmcrf_train.pt')
 
 # We got it!

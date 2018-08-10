@@ -253,7 +253,7 @@ with open("/home/yixing/pitch_data_processed.pkl", "rb") as f:
 train_X = torch.tensor(train_X)
 train_Y = torch.tensor(train_Y)
 train_set=data_utils.TensorDataset(train_X[0:BATCH_SIZE], train_Y[0:BATCH_SIZE])
-train_loader=data_utils.DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=True)
+train_loader=data_utils.DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=False)
 
 # In[92]:
 
@@ -294,7 +294,7 @@ for i, (X_train, y_train) in enumerate(train_loader):
         print(scores, "scores")
         #prediction=path.transpose(0,1).cpu().long().contiguous()
         #print(model(X_train), "hello")
-        prediction=path
+        prediction=torch.from_numpy(path)
         print(prediction, "prediction")
         print(y_train, "y_train")
 # We got it!
