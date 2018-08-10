@@ -243,17 +243,19 @@ import pickle
 #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device=torch.device("cpu")
 # load data from file
-SEQ_LEN=80
-BATCH_SIZE=2
-with open("/home/yixing/pitch_data_processed.pkl", "rb") as f:
+INDEX=0
+with open("/Users/joker/pitch_data_validate.pkl", "rb") as f:
     dic = pickle.load(f)
     train_X = dic["X"]
     train_Y = dic["Y"]
 
-train_X = torch.tensor(train_X)
-train_Y = torch.tensor(train_Y)
-train_set=data_utils.TensorDataset(train_X[0:BATCH_SIZE], train_Y[0:BATCH_SIZE])
-train_loader=data_utils.DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=False)
+train_X = torch.tensor(train_X[INDEX])
+train_Y = torch.tensor(train_Y[INDEX])
+
+SEQ_LEN=train_X.size()[0]
+BATCH_SIZE=1
+train_set=data_utils.TensorDataset(train_X, train_Y)
+train_loader=data_utils.DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=True)
 
 # In[92]:
 
