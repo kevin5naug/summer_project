@@ -241,7 +241,7 @@ import pickle
 #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device=torch.device("cpu")
 # load data from file
-VAL_SIZE=20
+VAL_SIZE=1
 BATCH_SIZE=1
 SEQ_LEN=80
 with open("/home/yixing/pitch_data_validate.pkl", "rb") as f:
@@ -269,9 +269,11 @@ label1=torch.tensor(truth1, dtype=torch.long)
 model = BiLSTM_CRF(input_dim, hidden_dim, output_size, START_TAG, STOP_TAG, BATCH_SIZE).to(device)
 model.load_state_dict(torch.load('lstmcrf_train3.pt'))
 model.eval()
-val_list=[]
+in_list=[]
+target_list=[]
 for i in range(VAL_SIZE):
-    temp=[]
+    temp_in=[]
+    temp_target=[]
     train_X0 = torch.tensor(train_X[i])
     train_Y0 = torch.tensor(train_Y[i])
     train_set=data_utils.TensorDataset(train_X0, train_Y0)
@@ -290,15 +292,25 @@ for i in range(VAL_SIZE):
         print(prediction, "prediction")
         print(y_train, "y_train")
         prediction=prediction.numpy()
+        X_train=X_train.numpy()
         y_train=y_train.numpy()
         prediction[prediction>1]=0
         prediction[y_train==0]=0
-        temp.append(prediction[0:(np.trim_zeros(y_train, 'b')).shape[0]])
-    temp=np.concatenate(temp)
-    print(temp)
-    val_list.append(temp)
+        last_index=np.trim_zeros(y_train, 'b').shape[0]
+        X_in=X_train[0:last_index]
+        target=prediction[0:last_index]
+        print(X_in, target)
+        print(last_index)
+        temp_in.append(X_in)
+        temp_target.append(target)
+    temp_in=np.concatenate(temp_in)
+    temp_target=np.concatenate(temp_target)
+    print(temp_target)
+    in_list.append(temp_in)
+    target_list.append(temp_target)
 f=open("prediction.pkl", "wb")
-pl.dump(val_list, f)
+d={"in":in_list, "out":target_list}
+pl.dump(d, f)
 f.close()
 
 # We got it!
