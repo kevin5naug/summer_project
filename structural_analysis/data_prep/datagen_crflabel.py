@@ -61,17 +61,23 @@ def parse_file(path, output_path):
         ds3.match(begin_t, end_t, char, label)
     ds3.mark_the_rest()
     ds3.label_transform()
+    next_begin=0
     for index in range(len(ds3.note_sequence)):
         begin_t, end_t, pitch=ds3.note_sequence[index]
+        if index<(len(ds3.note_sequence)-1):
+            next_begin, _1, _2 =ds3.note_sequence[index]
+        else:
+            next_begin=end_t
+        assert(next_begin>=end_t)
         label, char=ds3.label_sequence[index], ds3.char_sequence[index]
-        data_third_pass.append([begin_t, end_t, pitch, char, label])
+        data_third_pass.append([begin_t, end_t, next_begin-end_t, pitch, char, label])
     
     #Output data file
     output_path+=path[-5:-1]
     output_path+=".txt"
     thefile=open(output_path,'w')
     for point in data_third_pass:
-        thefile.write("%s %s %s %s %s\n" % (point[0], point[1], point[2], point[3], point[4]))
+        thefile.write("%s %s %s %s %s %s\n" % (point[0], point[1], point[2], point[3], point[4], point[5]))
     thefile.close()
 
 def extract_info(line):

@@ -71,8 +71,8 @@ def pitch2numpy(file_dir):
             if t != '' and t != '\n':
                 target.append(t)
         max_len=max(max_len, int(target[4]))
-        train_x.append([float(target[1])-float(target[0]), float(target[2])])
-        train_y.append([int(target[4])])
+        train_x.append([float(target[1])-float(target[0]), float(target[2]), float(target[3])])
+        train_y.append([int(target[5])])
         #print(target[1], target[0])
     target_file.close()
     return train_x, train_y, max_len

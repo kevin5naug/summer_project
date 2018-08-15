@@ -244,7 +244,7 @@ class BiLSTM_CRF(nn.Module):
 
 import pickle
 #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device=0
+device=2
 # load data from file
 SEQ_LEN=100
 BATCH_SIZE=64
