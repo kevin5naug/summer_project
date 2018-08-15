@@ -244,10 +244,10 @@ class BiLSTM_CRF(nn.Module):
 
 import pickle
 #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device=2
+device=1
 # load data from file
 SEQ_LEN=100
-BATCH_SIZE=64
+BATCH_SIZE=128
 with open("/home/yixing/pitch_data_processed.pkl", "rb") as f:
     dic = pickle.load(f)
     train_X = dic["X"]
@@ -265,7 +265,7 @@ print(len(train_X))
 print(train_X[0])
 
 CLIP = 10
-input_dim=2
+input_dim=3
 output_size=60
 START_TAG=output_size-2
 STOP_TAG=output_size-1
@@ -304,6 +304,17 @@ for epoch in range(30):  # again, normally you would NOT do 300 epochs, it is to
 
         # Step 3. Run our forward pass.
         loss = (model.neg_log_likelihood(X_train, y_train)).sum()/BATCH_SIZE
+        print(loss)
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP)
+        optimizer.step()
+    name='lstmcrf_train'+str(epoch)+'.pt'
+    torch.save(model.state_dict(), name)
+    torch.save(model.state_dict(),'lstmcrf_train.pt')
+
+
+# We got it!
+'''
         print_loss_total+=loss
         plot_loss_total+=loss
         
@@ -319,11 +330,4 @@ for epoch in range(30):  # again, normally you would NOT do 300 epochs, it is to
 
         # Step 4. Compute the loss, gradients, and update the parameters by
         # calling optimizer.step()
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP)
-        optimizer.step()
-    name='lstmcrf_train'+str(epoch)+'.pt'
-    torch.save(model.state_dict(), name)
-    torch.save(model.state_dict(),'lstmcrf_train.pt')
-
-# We got it!
+'''
