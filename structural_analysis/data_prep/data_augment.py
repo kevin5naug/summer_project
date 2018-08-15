@@ -182,7 +182,7 @@ def target_factorize(train_X, train_Y, pad_size=100):
             for shift in range(1,12):
                 for length in [0, 0.5]:
                     train_X_temp=(train_X_new[i]).clone()
-                    train_X_temp[:,1]+=direction*shift
+                    train_X_temp[:,2]+=direction*shift
                     train_X_temp[:,0]+=length
                     train_X_augment.append(pad(train_X_temp, pad_size))
                     train_Y_augment.append(pad(train_Y_new[i], pad_size))
@@ -211,7 +211,7 @@ def pitch_data():
         train_Y.append(np.array(train_y))
     train_X, train_Y=target_factorize(train_X, train_Y)
     print(train_X.size(), train_Y.size())
-    print(train_X)
+    print(train_X[1])
     dic = {"X": train_X, "Y": train_Y}
     f = open("/Users/joker/pitch_data_processed.pkl", "wb")
     pl.dump(dic, f)
