@@ -65,7 +65,7 @@ def parse_file(path, output_path):
     for index in range(len(ds3.note_sequence)):
         begin_t, end_t, pitch=ds3.note_sequence[index]
         if index<(len(ds3.note_sequence)-1):
-            next_begin, _1, _2 =ds3.note_sequence[index]
+            next_begin, _1, _2 =ds3.note_sequence[index+1]
         else:
             next_begin=end_t
         assert(next_begin>=end_t)
