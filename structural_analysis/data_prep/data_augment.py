@@ -156,21 +156,39 @@ def target_factorize(train_X, train_Y, pad_size=100):
             loc=loc+1
         prev=0
         #print(one_list)
-        for j in range(5, len(one_list), 5):
-            x_new=torch.from_numpy(train_X[i][prev:one_list[j]])
-            y_new=torch.from_numpy(train_Y[i][prev:one_list[j]].reshape(-1))
-            #print(x_new.size())
-            train_X_new.append(pad(x_new, pad_size))
-            train_Y_new.append(pad(y_new, pad_size))
-            prev=one_list[j]
-        if j!=len(one_list)-1:
-            x_new=torch.from_numpy(train_X[i][prev:])
-            y_new=torch.from_numpy(train_Y[i][prev:].reshape(-1))
-            #print(x_new.size())
-            train_X_new.append(pad(x_new, pad_size))
-            train_Y_new.append(pad(y_new, pad_size))
-    train_X_new=torch.stack(train_X_new)
-    train_Y_new=torch.stack(train_Y_new)
+        j=0
+        while(j<len(one_list)):
+            if (one_list[j]-prev)<100:
+                j+=1
+            elif j==len(one_list)-1 and prev<j:
+                x_new=torch.from_numpy(train_X[i][prev:])
+                y_new=torch.from_numpy(train_Y[i][prev:].reshape(-1))
+                #print(x_new.size())
+                train_X_new.append(x_new)
+                train_Y_new.append(y_new)
+                j+=1
+            else:
+                x_new=torch.from_numpy(train_X[i][prev:one_list[j-1]])
+                y_new=torch.from_numpy(train_Y[i][prev:one_list[j-1]].reshape(-1))
+                train_X_new.append(x_new)
+                train_Y_new.append(y_new)
+                prev=one_list[j-1]
+    train_X_augment=[]
+    train_Y_augment=[]
+    for i, target in enumerate(train_Y_new):
+        train_X_augment.append(pad(train_X_new[i], pad_size))
+        train_Y_augment.append(pad(train_Y_new[i], pad_size))
+        for direction in [-1,1]:
+            for shift in range(1,12):
+                for length in [0, 0.5]:
+                    train_X_temp=(train_X_new[i]).clone()
+                    train_X_temp[:,1]+=direction*shift
+                    train_X_temp[:,0]+=length
+                    train_X_augment.append(pad(train_X_temp, pad_size))
+                    train_Y_augment.append(pad(train_Y_new[i], pad_size))
+    train_X_new=torch.stack(train_X_augment)
+    train_Y_new=torch.stack(train_Y_augment)
+
     return train_X_new, train_Y_new
 
 
@@ -185,12 +203,13 @@ def pitch_data():
     for i in range(len(target_dir)):
         if target_dir[i].split(".")[-1] != "txt":
             continue
+        print(target_dir[i].split(".")[-2])
         file_dir = pitch_dir + "/" + target_dir[i]
         train_x, train_y, max_len= pitch2numpy(file_dir)
         max_seq=max(max_seq, max_len)
         train_X.append(np.array(train_x))
         train_Y.append(np.array(train_y))
-    train_X, train_Y= target_factorize(train_X, train_Y)
+    train_X, train_Y=target_factorize(train_X, train_Y)
     print(train_X.size(), train_Y.size())
     print(train_X)
     dic = {"X": train_X, "Y": train_Y}
