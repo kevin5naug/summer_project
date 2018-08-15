@@ -241,9 +241,9 @@ import pickle
 #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device=torch.device("cpu")
 # load data from file
-VAL_SIZE=1
+VAL_SIZE=20
 BATCH_SIZE=1
-SEQ_LEN=80
+SEQ_LEN=100
 with open("/home/yixing/pitch_data_validate.pkl", "rb") as f:
     dic = pickle.load(f)
     train_X = dic["X"]
@@ -267,7 +267,7 @@ truth1=[0,2,0,1,1,2]
 label1=torch.tensor(truth1, dtype=torch.long)
 '''
 model = BiLSTM_CRF(input_dim, hidden_dim, output_size, START_TAG, STOP_TAG, BATCH_SIZE).to(device)
-model.load_state_dict(torch.load('lstmcrf_train3.pt'))
+model.load_state_dict(torch.load('lstmcrf_train5.pt'))
 model.eval()
 in_list=[]
 target_list=[]

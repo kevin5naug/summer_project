@@ -284,13 +284,13 @@ truth1=[0,2,0,1,1,2]
 label1=torch.tensor(truth1, dtype=torch.long)
 '''
 model = BiLSTM_CRF(input_dim, hidden_dim, output_size, START_TAG, STOP_TAG, BATCH_SIZE).to(device)
-optimizer = optim.Adam(model.parameters(), lr=1e-3)
-#scheduler = optim.lr_scheduler.StepLR(optimizer, 1)
+optimizer = optim.Adam(model.parameters(), lr=1e-2)
+scheduler = optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.75)
 
 # Make sure prepare_sequence from earlier in the LSTM section is loaded
 for epoch in range(30):  # again, normally you would NOT do 300 epochs, it is toy data
     print("epoch %i"%epoch)
-    #scheduler.step()
+    scheduler.step()
     for i, (X_train, y_train) in enumerate(train_loader):
         # Step 1. Remember that Pytorch accumulates gradients.
         # We need to clear them out before each instance
