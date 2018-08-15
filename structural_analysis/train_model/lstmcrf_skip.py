@@ -284,7 +284,7 @@ truth1=[0,2,0,1,1,2]
 label1=torch.tensor(truth1, dtype=torch.long)
 '''
 model = BiLSTM_CRF(input_dim, hidden_dim, output_size, START_TAG, STOP_TAG, BATCH_SIZE).to(device)
-optimizer = optim.Adam(model.parameters(), lr=1e-2)
+optimizer = optim.Adam(model.parameters(), lr=5e-3)
 scheduler = optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.75)
 
 # Make sure prepare_sequence from earlier in the LSTM section is loaded
