@@ -246,8 +246,8 @@ import pickle
 #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device=1
 # load data from file
-SEQ_LEN=100
-BATCH_SIZE=128
+SEQ_LEN=120
+BATCH_SIZE=256
 with open("/home/yixing/pitch_data_processed.pkl", "rb") as f:
     dic = pickle.load(f)
     train_X = dic["X"]
@@ -284,7 +284,7 @@ truth1=[0,2,0,1,1,2]
 label1=torch.tensor(truth1, dtype=torch.long)
 '''
 model = BiLSTM_CRF(input_dim, hidden_dim, output_size, START_TAG, STOP_TAG, BATCH_SIZE).to(device)
-optimizer = optim.Adam(model.parameters(), lr=5e-3)
+optimizer = optim.SGD(model.parameters(), lr=1e-2, weight_decay=5e-8)
 scheduler = optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.75)
 
 # Make sure prepare_sequence from earlier in the LSTM section is loaded
