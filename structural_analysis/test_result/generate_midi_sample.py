@@ -41,7 +41,7 @@ def midi_generator(X, Y, Z, n):
 	midifile.close()
 
 
-def crf_midi_generator(X, Y, Z, n):
+def crf_midi_generator(X, Y, Z, n, m):
 	track = 0
 	channel = 0
 	volume = 100
@@ -51,7 +51,7 @@ def crf_midi_generator(X, Y, Z, n):
 	time = 0
 	tempo = 60
 	MyMIDI.addTempo(track,time, tempo)
-	print(Z["out"][2].shape)
+	print(Z["out"][m].shape)
 	print(X[n].shape)
 	for i, item in enumerate(X[n]):
 		time = float(item[0])
@@ -63,13 +63,13 @@ def crf_midi_generator(X, Y, Z, n):
 		MyMIDI.addNote(track,channel,pitch,time,duration,volume)
 		if(flag == 2):
 			MyMIDI.addNote(label_track,channel,90,time,duration,volume)
-		flag = int(Z["out"][0][i])
+		flag = int(Z["out"][m][i])
 		if(flag == 1):
 			MyMIDI.addNote(prediction_track,channel,30,time,duration,volume)
 
-	midifile = open("sample.mid", "wb")
+	midifile = open("/Users/joker/sample.mid", "wb")
 	MyMIDI.writeFile(midifile)
 	midifile.close()
 
-crf_midi_generator(train_X, train_Y, lstm_prediction, 1285)
+crf_midi_generator(train_X, train_Y, lstm_prediction, 1286, 2)
 

@@ -144,10 +144,11 @@ def pad(vector, pad, dim=0):
         print("FATAL ERROR: pad_size=100 not enough!")
     return torch.cat([vector, torch.zeros(*pad_size).type(vector.type())], dim=dim)
 
-def target_factorize(train_X, train_Y, pad_size=100):
+def target_factorize(train_X, train_Y, pad_size=120):
     train_X_new=[]
     train_Y_new=[]
     for i, target in enumerate(train_Y):
+        total_len=0
         one_list=[]
         loc=0
         for label in target:
@@ -158,18 +159,22 @@ def target_factorize(train_X, train_Y, pad_size=100):
         #print(one_list)
         j=0
         while(j<len(one_list)):
-            if (one_list[j]-prev)<100:
-                j+=1
-            elif j==len(one_list)-1 and prev<j:
+            if j==(len(one_list)-1) and prev<one_list[j]:
                 x_new=torch.from_numpy(train_X[i][prev:])
                 y_new=torch.from_numpy(train_Y[i][prev:].reshape(-1))
                 #print(x_new.size())
+                print(prev, one_list[j], j, "end")
+                total_len+=y_new.size(0)
                 train_X_new.append(x_new)
                 train_Y_new.append(y_new)
+                j+=1
+            elif (one_list[j]-prev)<80:
                 j+=1
             else:
                 x_new=torch.from_numpy(train_X[i][prev:one_list[j-1]])
                 y_new=torch.from_numpy(train_Y[i][prev:one_list[j-1]].reshape(-1))
+                print(prev, one_list[j-1], j)
+                total_len+=y_new.size(0)
                 train_X_new.append(x_new)
                 train_Y_new.append(y_new)
                 prev=one_list[j-1]
