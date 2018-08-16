@@ -267,11 +267,12 @@ truth1=[0,2,0,1,1,2]
 label1=torch.tensor(truth1, dtype=torch.long)
 '''
 model = BiLSTM_CRF(input_dim, hidden_dim, output_size, START_TAG, STOP_TAG, BATCH_SIZE).to(device)
-model.load_state_dict(torch.load('lstmcrf_train7.pt'))
+model.load_state_dict(torch.load('/home/yixing/summer_project/structural_analysis/train_model/lstmcrf_train7.pt'))
 model.eval()
 in_list=[]
 target_list=[]
 for i in range(VAL_SIZE):
+    total_len=0
     temp_in=[]
     temp_target=[]
     train_X0 = torch.tensor(train_X[i])
@@ -289,8 +290,8 @@ for i in range(VAL_SIZE):
         #prediction=path.transpose(0,1).cpu().long().contiguous()
         #print(model(X_train), "hello")
         prediction=torch.from_numpy(np.array(path)).reshape(SEQ_LEN,)
-        print(prediction, "prediction")
-        print(y_train, "y_train")
+        #print(prediction, "prediction")
+        #print(y_train, "y_train")
         prediction=prediction.numpy()
         X_train=X_train.numpy()
         y_train=y_train.numpy()
@@ -299,13 +300,14 @@ for i in range(VAL_SIZE):
         last_index=np.trim_zeros(y_train, 'b').shape[0]
         X_in=X_train[0:last_index]
         target=prediction[0:last_index]
-        print(X_in, target)
-        print(last_index)
+        #print(X_in, target)
+        #print(last_index)
+        total_len+=last_index
         temp_in.append(X_in)
         temp_target.append(target)
     temp_in=np.concatenate(temp_in)
     temp_target=np.concatenate(temp_target)
-    print(temp_target)
+    print(total_len)
     in_list.append(temp_in)
     target_list.append(temp_target)
 f=open("prediction.pkl", "wb")
