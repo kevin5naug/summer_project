@@ -194,7 +194,7 @@ def pitch_data():
         if target_dir[i].split(".")[-1] != "txt":
             continue
         #print(target_dir[i].split(".")[-2])
-        if int(target_dir[i].split(".")[-2])<=1800:
+        if int(target_dir[i].split(".")[-2])<=1700:
             continue
         file_dir = pitch_dir + "/" + target_dir[i]
         train_x, train_y, max_len= pitch2numpy(file_dir)
