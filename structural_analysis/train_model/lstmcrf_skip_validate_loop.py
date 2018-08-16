@@ -250,7 +250,7 @@ with open("/home/yixing/pitch_data_validate.pkl", "rb") as f:
     train_Y = dic["Y"]
 
 CLIP = 10
-input_dim=2
+input_dim=3
 output_size=60
 START_TAG=output_size-2
 STOP_TAG=output_size-1
@@ -267,7 +267,7 @@ truth1=[0,2,0,1,1,2]
 label1=torch.tensor(truth1, dtype=torch.long)
 '''
 model = BiLSTM_CRF(input_dim, hidden_dim, output_size, START_TAG, STOP_TAG, BATCH_SIZE).to(device)
-model.load_state_dict(torch.load('lstmcrf_train5.pt'))
+model.load_state_dict(torch.load('lstmcrf_train7.pt'))
 model.eval()
 in_list=[]
 target_list=[]
