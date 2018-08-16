@@ -70,9 +70,9 @@ def pitch2numpy(file_dir):
         for t in lines.split(" "):
             if t != '' and t != '\n':
                 target.append(t)
-        max_len=max(max_len, int(target[4]))
+        max_len=max(max_len, int(target[5]))
         train_x.append([float(target[1])-float(target[0]), float(target[2])])
-        train_y.append([int(target[4])])
+        train_y.append([int(target[5])])
         #print(target[1], target[0])
     target_file.close()
     return train_x, train_y, max_len
@@ -148,6 +148,7 @@ def target_factorize(train_X, train_Y, pad_size=80):
     train_X_new=[]
     train_Y_new=[]
     for i, target in enumerate(train_Y):
+        total_len=0
         train_X_temp=[]
         train_Y_temp=[]
         one_list=[]
@@ -162,6 +163,7 @@ def target_factorize(train_X, train_Y, pad_size=80):
             x_new=torch.from_numpy(train_X[i][prev:one_list[j]])
             y_new=torch.from_numpy(train_Y[i][prev:one_list[j]].reshape(-1))
             #print(x_new.size())
+            total_len+=y_new.size(0)
             train_X_temp.append(pad(x_new, pad_size))
             train_Y_temp.append(pad(y_new, pad_size))
             prev=one_list[j]
@@ -169,8 +171,10 @@ def target_factorize(train_X, train_Y, pad_size=80):
             x_new=torch.from_numpy(train_X[i][prev:])
             y_new=torch.from_numpy(train_Y[i][prev:].reshape(-1))
             #print(x_new.size())
+            total_len+=x_new.size(0)
             train_X_temp.append(pad(x_new, pad_size))
             train_Y_temp.append(pad(y_new, pad_size))
+        print(total_len)
         train_X_temp=torch.stack(train_X_temp)
         train_Y_temp=torch.stack(train_Y_temp)
         train_X_new.append(train_X_temp)
@@ -189,8 +193,8 @@ def pitch_data():
     for i in range(len(target_dir)):
         if target_dir[i].split(".")[-1] != "txt":
             continue
-        print(target_dir[i].split(".")[-2])
-        if int(target_dir[i].split(".")[-2])<=1700:
+        #print(target_dir[i].split(".")[-2])
+        if int(target_dir[i].split(".")[-2])<=1800:
             continue
         file_dir = pitch_dir + "/" + target_dir[i]
         train_x, train_y, max_len= pitch2numpy(file_dir)
@@ -198,12 +202,12 @@ def pitch_data():
         train_X.append(np.array(train_x))
         train_Y.append(np.array(train_y))
     train_X, train_Y=target_factorize(train_X, train_Y)
-    print(len(train_X), len(train_Y))
+    #print(len(train_X), len(train_Y))
     dic = {"X": train_X, "Y": train_Y}
     f = open("/Users/joker/pitch_data_validate.pkl", "wb")
     pl.dump(dic, f)
     f.close()
-    print(max_seq)
+    #print(max_seq)
     return train_X, train_Y
 
 
