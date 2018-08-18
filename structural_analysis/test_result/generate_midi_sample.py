@@ -54,6 +54,8 @@ def crf_midi_generator(X, Y, Z, n, m):
 	print(Z["out"][m].shape)
 	print(X[n].shape)
 	for i, item in enumerate(X[n]):
+		if(i>=Z['out'][m].shape[0]):
+			continue
 		time = float(item[0])
 		duration = float(item[1]) - float(item[0])
 		#time = i
@@ -71,5 +73,5 @@ def crf_midi_generator(X, Y, Z, n, m):
 	MyMIDI.writeFile(midifile)
 	midifile.close()
 
-crf_midi_generator(train_X, train_Y, lstm_prediction, 1286, 2)
+crf_midi_generator(train_X, train_Y, lstm_prediction, 1293, 9)
 
