@@ -243,7 +243,7 @@ device=torch.device("cpu")
 # load data from file
 VAL_SIZE=20
 BATCH_SIZE=1
-SEQ_LEN=100
+SEQ_LEN=120
 with open("/home/yixing/pitch_data_validate.pkl", "rb") as f:
     dic = pickle.load(f)
     train_X = dic["X"]
@@ -267,7 +267,7 @@ truth1=[0,2,0,1,1,2]
 label1=torch.tensor(truth1, dtype=torch.long)
 '''
 model = BiLSTM_CRF(input_dim, hidden_dim, output_size, START_TAG, STOP_TAG, BATCH_SIZE).to(device)
-model.load_state_dict(torch.load('/home/yixing/summer_project/structural_analysis/train_model/lstmcrf_train7.pt'))
+model.load_state_dict(torch.load('/home/yixing/summer_project/structural_analysis/train_model/lstmcrf_train10.pt'))
 model.eval()
 in_list=[]
 target_list=[]
@@ -295,9 +295,10 @@ for i in range(VAL_SIZE):
         prediction=prediction.numpy()
         X_train=X_train.numpy()
         y_train=y_train.numpy()
+        #testing prediction/target which to use
+        last_index=np.trim_zeros(prediction, 'b').shape[0]
         prediction[prediction>1]=0
         prediction[y_train==0]=0
-        last_index=np.trim_zeros(y_train, 'b').shape[0]
         X_in=X_train[0:last_index]
         target=prediction[0:last_index]
         #print(X_in, target)
