@@ -267,7 +267,7 @@ truth1=[0,2,0,1,1,2]
 label1=torch.tensor(truth1, dtype=torch.long)
 '''
 model = BiLSTM_CRF(input_dim, hidden_dim, output_size, START_TAG, STOP_TAG, BATCH_SIZE).to(device)
-model.load_state_dict(torch.load('/home/yixing/summer_project/structural_analysis/train_model/lstmcrf_train10.pt'))
+model.load_state_dict(torch.load('/home/yixing/summer_project/structural_analysis/train_model/lstmcrf_train12.pt'))
 model.eval()
 in_list=[]
 target_list=[]
