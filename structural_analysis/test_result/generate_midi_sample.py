@@ -41,7 +41,7 @@ def midi_generator(X, Y, Z, n):
 	midifile.close()
 
 
-def crf_midi_generator(X, Y, Z, n, m):
+def crf_midi_generator(X, Y, Z, n, m, silence, note_length):
 	track = 0
 	channel = 0
 	volume = 100
@@ -53,6 +53,8 @@ def crf_midi_generator(X, Y, Z, n, m):
 	MyMIDI.addTempo(track,time, tempo)
 	print(Z["out"][m].shape)
 	print(X[n].shape)
+	count = 0
+	total = 0
 	for i, item in enumerate(X[n]):
 		if(i>=Z['out'][m].shape[0]):
 			continue
@@ -65,13 +67,28 @@ def crf_midi_generator(X, Y, Z, n, m):
 		MyMIDI.addNote(track,channel,pitch,time,duration,volume)
 		if(flag == 2):
 			MyMIDI.addNote(label_track,channel,90,time,duration,volume)
+			if i>0 and (X[n][i-1][1]-X[n][i-1][0])<note_length and (X[n][i][0]-X[n][i-1][1])<silence:
+				total+=1            
 		flag = int(Z["out"][m][i])
 		if(flag == 1):
 			MyMIDI.addNote(prediction_track,channel,30,time,duration,volume)
-
-	midifile = open("/Users/joker/sample.mid", "wb")
+			#print(X[n][i-1][1]-X[n][i-1][0], X[n][i][0]-X[n][i-1][1])            
+			if i>0 and (X[n][i-1][1]-X[n][i-1][0])<note_length and (X[n][i][0]-X[n][i-1][1])<silence:
+				count+=1    
+	path = "/Users/joker/sample" +str(n)+"_"+str(m)+".mid"
+	midifile = open(path, "wb")
 	MyMIDI.writeFile(midifile)
 	midifile.close()
+	return count, total    
 
-crf_midi_generator(train_X, train_Y, lstm_prediction, 1293, 9)
+total_val=0
+count_val=0
+for i in range(20):
+    count, total=crf_midi_generator(train_X, train_Y, lstm_prediction, 1284+i, i, 0.01, 0.5)
+    total_val+=total
+    count_val+=count
+
+print("model diagnose: ", count_val) 
+print("total critical targets num: ", total_val)
+print("ratio: ", float(count_val)/total_val)
 
