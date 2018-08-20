@@ -1,29 +1,54 @@
 import torch
+import torch.autograd as autograd
 import torch.nn as nn
-from torch import optim
-import torch.nn.functional as F
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
+import torch.optim as optim
 import numpy as np
-from torch.autograd import Variable
+import torch.utils.data as data_utils
+import torch.nn.functional as F
 import pickle
 
 device = torch.device(2 if torch.cuda.is_available() else "cpu")
 SEQ_LEN=880
-BATCH_SIZE=256
+BATCH_SIZE=2
+def argmax(vec):
+    # return the argmax as a python int
+    _, idx = torch.max(vec, 1)
+    return idx
+
+
+def log_sum_exp(inputs, dim=None, keepdim=False):
+    """Numerically stable logsumexp.
+    Args:
+        inputs: A Variable with any shape.
+        dim: An integer.
+        keepdim: A boolean.
+    Returns:
+        Equivalent of log(sum(exp(inputs), dim=dim, keepdim=keepdim)).
+    """
+    # For a 1-D array x (any array along a single dimension),
+    # log sum exp(x) = s + log sum exp(x - s)
+    # with s = max(x) being a common choice.
+    if dim is None:
+        inputs = inputs.view(-1)
+        dim = 0
+    s, _ = torch.max(inputs, dim=dim, keepdim=True)
+    outputs = s + (inputs - s).exp().sum(dim=dim, keepdim=True).log()
+    if not keepdim:
+        outputs = outputs.squeeze(dim)
+    return outputs
 
 class CNNCRF(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_size, START_TAG, STOP_TAG, BATCH_SIZE):
-        super(CnnMusic, self).__init__()
+        super(CNNCRF, self).__init__()
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.output_size = output_size 
         
-        self.conv1 = nn.Conv1d(3, 64, 3, padding=2)
-        self.conv2 = nn.Conv1d(64, 128, 3, padding=2)
-        self.conv3 = nn.Conv1d(128, 128, 3, padding=2)
-        self.conv4 = nn.Conv1d(128, 256, 3, padding=2)
-        self.conv5 = nn.Conv1d(256, 512, 5, padding=4)
+        self.conv1 = nn.Conv1d(3, self.hidden_dim, 3, padding=1)
+        self.conv2 = nn.Conv1d(self.hidden_dim, self.hidden_dim, 3, padding=1)
+        self.conv3 = nn.Conv1d(self.hidden_dim, self.hidden_dim, 3, padding=1)
+        self.conv4 = nn.Conv1d(self.hidden_dim, self.hidden_dim, 3, padding=1)
+        self.conv5 = nn.Conv1d(self.hidden_dim, self.hidden_dim, 5, padding=2)
         self.fc6 = nn.Linear(self.hidden_dim, self.output_size)
         # Matrix of transition parameters.  Entry i,j is the score of
         # transitioning *to* i *from* j.
@@ -82,23 +107,23 @@ class CNNCRF(nn.Module):
         #need to change the shape of sequence to (BATCH_SIZE, -1, SEQ_LEN)
         sequence=sequence.permute(1,2,0).contiguous()
         conv_out1 = self.conv1(sequence)
-        conv_in2 = F.relu(conv_out1[:, :, :-2])
+        conv_in2 = F.relu(conv_out1)
         
         conv_out2 = self.conv2(conv_in2)
-        conv_in3 = F.relu(conv_out2[:, :, :-2])
-        
+        conv_in3 = F.relu(conv_out2)
+
         conv_out3 = self.conv3(conv_in3+conv_in2)
-        conv_in4 = F.relu(conv_out3[:, :, :-2])
+        conv_in4 = F.relu(conv_out3)
 
         conv_out4 = self.conv4(conv_in4+conv_in3)
-        conv_in5 = F.relu(conv_out4[:, :, :-2])
+        conv_in5 = F.relu(conv_out4)
 
         conv_out5 = self.conv5(conv_in5+conv_in4)
-        fc_in6 = F.relu(conv_out5[:, :, :-4])
+        conv_out5 = conv_out5.permute(2,0,1).contiguous()
+        x = self.fc6(conv_out5)
         
-        x=self.fc6(fc_in6)
         #CRF above takes in tensor of shape (Sequence_len, BATCH_SIZE, -1)
-        x=x.permute(2,0,1).contiguous()
+        print(x.size())
         return x
 
     def _score_sentence(self, feats, tags):
@@ -167,14 +192,14 @@ class CNNCRF(nn.Module):
         return path_score, best_path
 
     def neg_log_likelihood(self, sentence, tags):
-        feats = self._get_lstm_features(sentence)
+        feats = self._get_cnn_features(sentence)
         forward_score = self._forward_alg(feats)
         gold_score = self._score_sentence(feats, tags)
         return forward_score - gold_score
 
     def forward(self, sentence):  # dont confuse this with _forward_alg above.
         # Get the emission scores from the BiLSTM
-        lstm_feats = self._get_lstm_features(sentence)
+        lstm_feats = self._get_cnn_features(sentence)
 
         # Find the best path, given the features.
         score, tag_seq = self._viterbi_decode(lstm_feats)
@@ -185,13 +210,13 @@ with open("/home/yixing/cnn_pitch_data_processed.pkl", "rb") as f:
     train_X = dic["X"]
     train_Y = dic["Y"]
 
-train_X = torch.tensor(train_X)
-train_Y = torch.tensor(train_Y)
+train_X = torch.tensor(train_X[0:2])
+train_Y = torch.tensor(train_Y[0:2])
 train_set=data_utils.TensorDataset(train_X, train_Y)
 train_loader=data_utils.DataLoader(dataset=train_set, batch_size=BATCH_SIZE, drop_last=True, shuffle=True)
 print(len(train_X))
 print(train_X[0])
-
+CLIP = 10
 input_dim=3
 output_size=60
 START_TAG=output_size-2
@@ -204,17 +229,17 @@ print_loss_total=0
 plot_loss_total=0
 
 model = CNNCRF(input_dim, hidden_dim, output_size, START_TAG, STOP_TAG, BATCH_SIZE).to(device)
-optimizer = optim.SGD(model.parameters(), lr=1e-2, weight_decay=5e-8)
-scheduler = optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.75)
+optimizer = optim.SGD(model.parameters(), lr=1e-3, weight_decay=5e-12)
+#scheduler = optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.75)
 
-for epoch in range(30):  # again, normally you would NOT do 300 epochs, it is toy data
+for epoch in range(300):  # again, normally you would NOT do 300 epochs, it is toy data
     print("epoch %i"%epoch)
-    scheduler.step()
+    #scheduler.step()
     for i, (X_train, y_train) in enumerate(train_loader):
         # Step 1. Remember that Pytorch accumulates gradients.
         # We need to clear them out before each instance
         X_train=X_train.permute(1,0,2).float().contiguous().to(device)
-        y_train=y_train.permute(1,0,2).long().contiguous().to(device)
+        y_train=y_train.permute(1,0).long().contiguous().to(device)
         #print(X_train, y_train)
         model.zero_grad()
 
@@ -228,5 +253,10 @@ for epoch in range(30):  # again, normally you would NOT do 300 epochs, it is to
         torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP)
         optimizer.step()
     name='cnncrf_train'+str(epoch)+'.pt'
-    torch.save(model.state_dict(), name)
+    #torch.save(model.state_dict(), name)
     torch.save(model.state_dict(),'cnncrf_train.pt')
+
+scores, path=model(X_train)
+prediction=torch.from_numpy(np.array(path)).reshape(SEQ_LEN,)
+print(prediction, "prediction")
+print(y_train, "y_train")
