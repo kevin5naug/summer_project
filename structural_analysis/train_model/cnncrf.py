@@ -10,7 +10,7 @@ import pickle
 device = torch.device(2 if torch.cuda.is_available() else "cpu")
 #device=torch.device("cpu")
 SEQ_LEN=120
-BATCH_SIZE=2
+BATCH_SIZE=256
 def argmax(vec):
     # return the argmax as a python int
     _, idx = torch.max(vec, 1)
@@ -124,7 +124,7 @@ class CNNCRF(nn.Module):
         x = self.fc6(conv_out5)
         
         #CRF above takes in tensor of shape (Sequence_len, BATCH_SIZE, -1)
-        print(x.size(), "cnn_feats")
+        #print(x.size(), "cnn_feats")
         return x
 
     def _score_sentence(self, feats, tags):
@@ -135,9 +135,9 @@ class CNNCRF(nn.Module):
         for i, feat in enumerate(feats):
             score = score + \
                     self.transitions[tags[i + 1], tags[i]] + feat[helper_index, tags[i + 1]]
-        print(score.size())
+        #print(score.size())
         score = score + self.transitions[STOP_TAG, tags[-1]]
-        print(score.size())
+        #print(score.size())
         return score
 
     def _viterbi_decode(self, feats):
@@ -200,7 +200,7 @@ class CNNCRF(nn.Module):
         feats = self._get_cnn_features(sentence)
         forward_score = self._forward_alg(feats)
         gold_score = self._score_sentence(feats, tags)
-        print(forward_score, gold_score)
+        #print(forward_score, gold_score)
         return forward_score - gold_score
 
     def forward(self, sentence):  # dont confuse this with _forward_alg above.
@@ -216,12 +216,12 @@ with open("/home/yixing/pitch_data_processed.pkl", "rb") as f:
     train_X = dic["X"]
     train_Y = dic["Y"]
 
-train_X = torch.tensor(train_X[0:2])
-train_Y = torch.tensor(train_Y[0:2])
+train_X = torch.tensor(train_X)
+train_Y = torch.tensor(train_Y)
 train_set=data_utils.TensorDataset(train_X, train_Y)
 train_loader=data_utils.DataLoader(dataset=train_set, batch_size=BATCH_SIZE, drop_last=True, shuffle=True)
 print(len(train_X))
-print(train_X[0])
+#print(train_X[0])
 CLIP = 5
 input_dim=3
 output_size=60
@@ -235,12 +235,12 @@ print_loss_total=0
 plot_loss_total=0
 
 model = CNNCRF(input_dim, hidden_dim, output_size, START_TAG, STOP_TAG, BATCH_SIZE).to(device)
-optimizer = optim.SGD(model.parameters(), lr=5e-3, weight_decay=5e-12)
-#scheduler = optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.75)
+optimizer = optim.SGD(model.parameters(), lr=1e-2, weight_decay=5e-12)
+scheduler = optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.75)
 
-for epoch in range(300):  # again, normally you would NOT do 300 epochs, it is toy data
+for epoch in range(30):  # again, normally you would NOT do 300 epochs, it is toy data
     print("epoch %i"%epoch)
-    #scheduler.step()
+    scheduler.step()
     for i, (X_train, y_train) in enumerate(train_loader):
         # Step 1. Remember that Pytorch accumulates gradients.
         # We need to clear them out before each instance
@@ -254,12 +254,12 @@ for epoch in range(300):  # again, normally you would NOT do 300 epochs, it is t
 
         # Step 3. Run our forward pass.
         loss = (model.neg_log_likelihood(X_train, y_train)).sum()/BATCH_SIZE
-        print(loss)
+        print(i, loss)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP)
         optimizer.step()
     name='cnncrf_train'+str(epoch)+'.pt'
-    #torch.save(model.state_dict(), name)
+    torch.save(model.state_dict(), name)
     torch.save(model.state_dict(),'cnncrf_train.pt')
 
 #scores, path=model(X_train)
