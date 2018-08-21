@@ -8,7 +8,8 @@ import torch.nn.functional as F
 import pickle
 
 device = torch.device(2 if torch.cuda.is_available() else "cpu")
-SEQ_LEN=880
+#device=torch.device("cpu")
+SEQ_LEN=120
 BATCH_SIZE=2
 def argmax(vec):
     # return the argmax as a python int
@@ -97,7 +98,6 @@ class CNNCRF(nn.Module):
             forward_var = forward_var.transpose(0,1)
             forward_var =forward_var.contiguous()
             #print(forward_var, "forward_var")
-        #print(forward_var)
         terminal_var = forward_var + self.transitions[STOP_TAG]
         #print(terminal_var)
         alpha = log_sum_exp(terminal_var, dim=1, keepdim=True).reshape(BATCH_SIZE,)
@@ -119,11 +119,12 @@ class CNNCRF(nn.Module):
         conv_in5 = F.relu(conv_out4)
 
         conv_out5 = self.conv5(conv_in5+conv_in4)
+        conv_out5 = F.relu(conv_out5)
         conv_out5 = conv_out5.permute(2,0,1).contiguous()
         x = self.fc6(conv_out5)
         
         #CRF above takes in tensor of shape (Sequence_len, BATCH_SIZE, -1)
-        print(x.size())
+        print(x.size(), "cnn_feats")
         return x
 
     def _score_sentence(self, feats, tags):
@@ -134,7 +135,9 @@ class CNNCRF(nn.Module):
         for i, feat in enumerate(feats):
             score = score + \
                     self.transitions[tags[i + 1], tags[i]] + feat[helper_index, tags[i + 1]]
+        print(score.size())
         score = score + self.transitions[STOP_TAG, tags[-1]]
+        print(score.size())
         return score
 
     def _viterbi_decode(self, feats):
@@ -147,6 +150,8 @@ class CNNCRF(nn.Module):
 
         # forward_var at step i holds the viterbi variables for step i-1
         forward_var = init_vvars
+        #print(forward_var.size(), "before loop 0")
+        #print(feats.size(), "feats passed in decode process")
         for feat in feats:
             bptrs_t = []  # holds the backpointers for this step
             viterbivars_t = []  # holds the viterbi variables for this step
@@ -166,11 +171,11 @@ class CNNCRF(nn.Module):
             forward_var = (torch.cat(viterbivars_t, 0).reshape(self.output_size, BATCH_SIZE))
             forward_var = forward_var.transpose(0,1)
             forward_var = forward_var.contiguous()
-            #print(forward_var)
-            #print(feat)
+            #print(forward_var.size(), "forward var")
+            #print(feat.size(), "feat")
             forward_var = (forward_var + feat).view(BATCH_SIZE, -1)
             backpointers.append(bptrs_t)
-
+        #print(forward_var.size(), "after loop 0")
         # Transition to STOP_TAG
         terminal_var = forward_var + self.transitions[STOP_TAG]
         best_tag_id = argmax(terminal_var)
@@ -187,7 +192,7 @@ class CNNCRF(nn.Module):
             best_path.append(best_tag_id)
         # Pop off the start tag (we dont want to return that to the caller)
         start = best_path.pop()
-        assert start[0] == START_TAG  # Sanity check
+        assert start == START_TAG  # Sanity check
         best_path.reverse()
         return path_score, best_path
 
@@ -195,6 +200,7 @@ class CNNCRF(nn.Module):
         feats = self._get_cnn_features(sentence)
         forward_score = self._forward_alg(feats)
         gold_score = self._score_sentence(feats, tags)
+        print(forward_score, gold_score)
         return forward_score - gold_score
 
     def forward(self, sentence):  # dont confuse this with _forward_alg above.
@@ -205,7 +211,7 @@ class CNNCRF(nn.Module):
         score, tag_seq = self._viterbi_decode(lstm_feats)
         return score, tag_seq
 
-with open("/home/yixing/cnn_pitch_data_processed.pkl", "rb") as f:
+with open("/home/yixing/pitch_data_processed.pkl", "rb") as f:
     dic = pickle.load(f)
     train_X = dic["X"]
     train_Y = dic["Y"]
@@ -216,7 +222,7 @@ train_set=data_utils.TensorDataset(train_X, train_Y)
 train_loader=data_utils.DataLoader(dataset=train_set, batch_size=BATCH_SIZE, drop_last=True, shuffle=True)
 print(len(train_X))
 print(train_X[0])
-CLIP = 10
+CLIP = 5
 input_dim=3
 output_size=60
 START_TAG=output_size-2
@@ -229,7 +235,7 @@ print_loss_total=0
 plot_loss_total=0
 
 model = CNNCRF(input_dim, hidden_dim, output_size, START_TAG, STOP_TAG, BATCH_SIZE).to(device)
-optimizer = optim.SGD(model.parameters(), lr=1e-3, weight_decay=5e-12)
+optimizer = optim.SGD(model.parameters(), lr=5e-3, weight_decay=5e-12)
 #scheduler = optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.75)
 
 for epoch in range(300):  # again, normally you would NOT do 300 epochs, it is toy data
@@ -256,7 +262,7 @@ for epoch in range(300):  # again, normally you would NOT do 300 epochs, it is t
     #torch.save(model.state_dict(), name)
     torch.save(model.state_dict(),'cnncrf_train.pt')
 
-scores, path=model(X_train)
-prediction=torch.from_numpy(np.array(path)).reshape(SEQ_LEN,)
-print(prediction, "prediction")
-print(y_train, "y_train")
+#scores, path=model(X_train)
+#prediction=torch.from_numpy(np.array(path)).reshape(SEQ_LEN,)
+#print(prediction, "prediction")
+#print(y_train, "y_train")
