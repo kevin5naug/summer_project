@@ -8,7 +8,7 @@ with open("/Users/joker/pitch_data.pkl", "rb") as f:
     train_X = dic["X"]
     train_Y = dic["Y"]
 
-with open("/Users/joker/prediction.pkl", "rb") as f:
+with open("/Users/joker/cnncrf_prediction.pkl", "rb") as f:
 	lstm_prediction = pickle.load(f)
 
 
