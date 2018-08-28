@@ -1,13 +1,16 @@
 import torch
+import torch.autograd as autograd
 import torch.nn as nn
-from torch import optim
+import torch.optim as optim
+import numpy as np
+import torch.utils.data as data_utils
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
-import numpy as np
 from torch.autograd import Variable
 import pickle
 from copy import deepcopy
 import random
+
 device = torch.device(0 if torch.cuda.is_available() else "cpu")
 #CRF Parameters Pre-set
 SEQ_LEN=120 #Training set sequence length
@@ -83,6 +86,7 @@ def validation_set_factorize(train_X, train_Y, pad_size=880):
         train_Y_new.append(pad(torch.from_numpy(train_Y[i].reshape(-1)), pad_size))
     train_X_augment=[]
     train_Y_augment=[]
+    #print(train_Y_new)
     for i, target in enumerate(train_Y_new):
         train_X_augment.append(train_X_new[i])
         train_Y_augment.append(train_Y_new[i])
@@ -118,8 +122,6 @@ def log_sum_exp(inputs, dim=None, keepdim=False):
     return outputs
 
 def compute_acc(prediction, ground_truth):
-    prediction=prediction.cpu()
-    ground_truth=ground_truth.cpu()
     p0t0=0
     p0t1=0
     p1t0=0
@@ -148,8 +150,8 @@ class CrossValidator:
         self.model=model
         with open("/home/yixing/cross_validator_data.pkl", "rb") as f:
             dic=pickle.load(f)
-            self.data_X=dic["X"][0:100]
-            self.data_Y=dic["Y"][0:100]
+            self.data_X=dic["X"][0:20]
+            self.data_Y=dic["Y"][0:20]
         self.data_size=len(self.data_X)
         self.partition=partition
         self.decoder=decoder
@@ -192,7 +194,7 @@ class CrossValidator:
             temptrain_X, temptrain_Y, tempval_X, tempval_Y = self.create_data(i)
             #print((temptrain_X[0]), (temptrain_Y[0]))
             self.train_X, self.train_Y=training_set_factorize(temptrain_X, temptrain_Y, augment_data=self.augment_data_flag)
-            self.val_X, self.val_Y=validation_set_factorize(self.val_X, self.val_Y)
+            self.val_X, self.val_Y=validation_set_factorize(tempval_X, tempval_Y)
             self.val_Y=self.val_Y.long()
             print("phase 1 completed")
             #create dataset
@@ -209,25 +211,24 @@ class CrossValidator:
             train_len=self.train_X.size(0)
             self.loss_history.append([])
             for j in range(self.epochs):
-                print("epoch %i"%epoch)
+                print("epoch %i"%j)
                 scheduler.step()
                 for k, (X_train, y_train) in enumerate(train_loader):
                     X_train=X_train.transpose(0,1).float().contiguous().to(device)
                     y_train=y_train.transpose(0,1).long().contiguous().to(device)
                     cur_model.zero_grad()
                     loss = (cur_model.neg_log_likelihood(X_train, y_train)).sum()/BATCH_SIZE
-                    print(i, j, k*1.0/train_len, loss)
+                    print(i, j, k*BATCH_SIZE*1.0/train_len, loss)
                     loss.backward()
                     torch.nn.utils.clip_grad_norm_(cur_model.parameters(), CLIP)
                     optimizer.step()
                 #ATTENTION: Should we add early stopping here?    
                 self.loss_history[i].append(loss.cpu().data)
-                name='model_train_epoch'+str(epoch)+'_part'+str(i)+'.pt'
+                name='model_train_epoch'+str(j)+'_part'+str(i)+'.pt'
                 torch.save(cur_model.state_dict(), name)
                 print("compeleted: ", float(i*self.epochs+j)/float(self.partition*self.epochs))
             
-            #validation on CPU
-            cur_model.cpu()
+            #validation
             p0t1=0
             p0t0=0
             p1t1=0
@@ -235,25 +236,34 @@ class CrossValidator:
             for j in range(self.val_X.size(0)):
                 val_X=torch.tensor(self.val_X[i])
                 val_Y=torch.tensor(self.val_Y[i])
-                val_X=val_X.reshape(VAL_SEQ_LEN, VAL_BATCH_SIZE, -1).float().contiguous()
-                val_Y=val_Y.reshape(VAL_SEQ_LEN,).long().contiguous()
+                val_X=val_X.reshape(VAL_SEQ_LEN, VAL_BATCH_SIZE, -1).float().contiguous().to(device)
+                val_Y=val_Y.reshape(VAL_SEQ_LEN,).long().contiguous().to(device)
                 scores, path=cur_model(val_X)
                 prediction=torch.from_numpy(np.array(path)).reshape(VAL_SEQ_LEN,)
                 prediction=prediction.numpy()
-                val_X=val_X.numpy()
-                val_Y=val_Y.numpy()
+                val_X=val_X.cpu().numpy()
+                val_Y=val_Y.cpu().numpy()
                 last_index=np.trim_zeros(prediction, 'b').shape[0] #This line might be buggy!!! might want to use the true size
-                prediction[prediction>1]=0
                 output_Y=prediction[0:last_index]
                 target_Y=val_Y[0:last_index]
+                output_Y[output_Y>1]=0
+                target_Y[target_Y>1]=0
                 countp0t1, countp0t0, countp1t1, countp1t0=self.compute_acc(output_Y, target_Y)
                 p0t1+=countp0t1
                 p0t0+=countp0t0
                 p1t1+=countp1t1
                 p1t0+=countp1t0
-            self.precision_history.append(p1t1*1.0/(p1t1+p1t0))
-            self.recall_history.append(p1t1*1.0/(p1t1+p0t1))
-            print(self.precision_history, selfprecision_history)
+
+            if((p1t1+p1t0)==0):
+                self.precision_history.append(-1)
+            else:
+                self.precision_history.append(p1t1*1.0/(p1t1+p1t0))
+            
+            if((p1t1+p0t1)==0):
+                self.recall_history.append(-1)
+            else:
+                self.recall_history.append(p1t1*1.0/(p1t1+p0t1))
+            print(self.precision_history, self.recall_history)
         return self.precision_history, self.recall_history, self.loss_history
 
 class BiLSTM_CRF(nn.Module):
@@ -300,10 +310,12 @@ class BiLSTM_CRF(nn.Module):
         self.hidden6 = self.init_hidden()
         self.hidden7 = self.init_hidden()
 
-    def init_hidden(self):
-        return (torch.randn(2, BATCH_SIZE, self.hidden_dim // 2, device=device),
+    def init_hidden(self, validation=False):
+        if not validation:
+            return (torch.randn(2, BATCH_SIZE, self.hidden_dim // 2, device=device),
                 torch.randn(2, BATCH_SIZE, self.hidden_dim // 2, device=device))
-
+        else:
+            return(torch.rand(2, VAL_BATCH_SIZE, self.hidden_dim //2, device=device), torch.randn(2, VAL_BATCH_SIZE, self.hidden_dim //2, device=device))
     def _forward_alg(self, feats):
         # Do the forward algorithm to compute the partition function
         init_alphas = torch.full((BATCH_SIZE, self.output_size), -10000., device=device)
@@ -341,14 +353,14 @@ class BiLSTM_CRF(nn.Module):
         alpha = log_sum_exp(terminal_var, dim=1, keepdim=True).reshape(BATCH_SIZE,)
         return alpha
 
-    def _get_lstm_features(self, sequence):
-        self.hidden1 = self.init_hidden()
-        self.hidden2 = self.init_hidden()
-        self.hidden3 = self.init_hidden()
-        self.hidden4 = self.init_hidden()
-        self.hidden5 = self.init_hidden()
-        self.hidden6 = self.init_hidden()
-        self.hidden7 = self.init_hidden()
+    def _get_lstm_features(self, sequence, validation=False):
+        self.hidden1 = self.init_hidden(validation=validation)
+        self.hidden2 = self.init_hidden(validation=validation)
+        self.hidden3 = self.init_hidden(validation=validation)
+        self.hidden4 = self.init_hidden(validation=validation)
+        self.hidden5 = self.init_hidden(validation=validation)
+        self.hidden6 = self.init_hidden(validation=validation)
+        self.hidden7 = self.init_hidden(validation=validation)
         
         lstm_out1, self.hidden1 = self.lstm1(sequence, self.hidden1)
         lstm_in2=F.relu(lstm_out1)
@@ -428,7 +440,7 @@ class BiLSTM_CRF(nn.Module):
         for bptrs_t in reversed(backpointers):
             #print(bptrs_t)
             temp=torch.cat(bptrs_t, 0).reshape(self.output_size, VAL_BATCH_SIZE)
-            temp=temp.transpose(0,1).contiguous().numpy()
+            temp=temp.transpose(0,1).contiguous()
             #print(temp)
             best_tag_id = temp[helper_index, best_tag_id]
             best_path.append(best_tag_id)
@@ -446,7 +458,7 @@ class BiLSTM_CRF(nn.Module):
 
     def forward(self, sentence):  # dont confuse this with _forward_alg above.
         # Get the emission scores from the BiLSTM
-        lstm_feats = self._get_lstm_features(sentence)
+        lstm_feats = self._get_lstm_features(sentence, validation=True)
 
         # Find the best path, given the features.
         score, tag_seq = self._viterbi_decode(lstm_feats)
