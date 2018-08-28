@@ -218,7 +218,8 @@ class CrossValidator:
                     y_train=y_train.transpose(0,1).long().contiguous().to(device)
                     cur_model.zero_grad()
                     loss = (cur_model.neg_log_likelihood(X_train, y_train)).sum()/BATCH_SIZE
-                    print(i, j, k*BATCH_SIZE*1.0/train_len, loss)
+                    if k%100==0:
+                        print(i, j, k*BATCH_SIZE*1.0/train_len, loss)
                     loss.backward()
                     torch.nn.utils.clip_grad_norm_(cur_model.parameters(), CLIP)
                     optimizer.step()
@@ -234,8 +235,9 @@ class CrossValidator:
             p1t1=0
             p1t0=0
             for j in range(self.val_X.size(0)):
-                val_X=torch.tensor(self.val_X[i])
-                val_Y=torch.tensor(self.val_Y[i])
+                print(j, self.val_X.size())
+                val_X=torch.tensor(self.val_X[j])
+                val_Y=torch.tensor(self.val_Y[j])
                 val_X=val_X.reshape(VAL_SEQ_LEN, VAL_BATCH_SIZE, -1).float().contiguous().to(device)
                 val_Y=val_Y.reshape(VAL_SEQ_LEN,).long().contiguous().to(device)
                 scores, path=cur_model(val_X)
