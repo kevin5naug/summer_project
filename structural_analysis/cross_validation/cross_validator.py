@@ -150,8 +150,8 @@ class CrossValidator:
         self.model=model
         with open("/home/yixing/cross_validator_data.pkl", "rb") as f:
             dic=pickle.load(f)
-            self.data_X=dic["X"][0:20]
-            self.data_Y=dic["Y"][0:20]
+            self.data_X=dic["X"]
+            self.data_Y=dic["Y"]
         self.data_size=len(self.data_X)
         self.partition=partition
         self.decoder=decoder
@@ -196,7 +196,7 @@ class CrossValidator:
             self.train_X, self.train_Y=training_set_factorize(temptrain_X, temptrain_Y, augment_data=self.augment_data_flag)
             self.val_X, self.val_Y=validation_set_factorize(tempval_X, tempval_Y)
             self.val_Y=self.val_Y.long()
-            print("phase 1 completed")
+            print(i, "phase 1 completed")
             #create dataset
             self.train_X=torch.tensor(self.train_X)
             self.train_Y=torch.tensor(self.train_Y)
@@ -207,7 +207,6 @@ class CrossValidator:
             
             optimizer=optim.SGD(cur_model.parameters(), lr=self.lr, weight_decay=5e-8)
             scheduler = optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.75)
-            loss=0
             train_len=self.train_X.size(0)
             self.loss_history.append([])
             for j in range(self.epochs):
@@ -218,13 +217,13 @@ class CrossValidator:
                     y_train=y_train.transpose(0,1).long().contiguous().to(device)
                     cur_model.zero_grad()
                     loss = (cur_model.neg_log_likelihood(X_train, y_train)).sum()/BATCH_SIZE
-                    if k%100==0:
+                    if k%1==0:
                         print(i, j, k*BATCH_SIZE*1.0/train_len, loss)
+                        self.loss_history[i].append(loss.cpu().data)
                     loss.backward()
                     torch.nn.utils.clip_grad_norm_(cur_model.parameters(), CLIP)
                     optimizer.step()
                 #ATTENTION: Should we add early stopping here?    
-                self.loss_history[i].append(loss.cpu().data)
                 name='model_train_epoch'+str(j)+'_part'+str(i)+'.pt'
                 torch.save(cur_model.state_dict(), name)
                 print("compeleted: ", float(i*self.epochs+j)/float(self.partition*self.epochs))
@@ -467,6 +466,10 @@ class BiLSTM_CRF(nn.Module):
         return score, tag_seq
 
 model=BiLSTM_CRF(input_dim, hidden_dim, output_size, START_TAG, STOP_TAG, BATCH_SIZE)
-validator=CrossValidator(model, compute_acc=compute_acc, batch_size=BATCH_SIZE, epochs=1, lr=1e-2, augment_data=True)
+validator=CrossValidator(model, compute_acc=compute_acc, batch_size=BATCH_SIZE, epochs=10, lr=1e-2, augment_data=True)
 precision, recall, loss=validator.compute()
 print(precision, recall, loss)
+out_f=open("report.pkl", "wb")
+d={"p":precision, "r": recall, "l":loss}
+pickle.dump(d, out_f)
+out_f.close()
