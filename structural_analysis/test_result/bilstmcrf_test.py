@@ -5,7 +5,7 @@ import torch.optim as optim
 import numpy as np
 import torch.utils.data as data_utils
 import torch.nn.functional as F
-
+import pickle as pl
 def argmax(vec):
     # return the argmax as a python int
     _, idx = torch.max(vec, 1)
@@ -75,12 +75,7 @@ class BiLSTM_CRF(nn.Module):
         # to the start tag and we never transfer from the stop tag
         self.transitions.data[START_TAG, :] = -10000
         self.transitions.data[:, STOP_TAG] = -10000
-        for i in range(2, self.output_size):
-            for j in range(2, self.output_size):
-                if j<=i:
-                    self.transitions.data[j,i]=-10000
-                if j>=(i+2):
-                    self.transitions.data[j,i]=-10000
+
 
         self.hidden1 = self.init_hidden()
         self.hidden2 = self.init_hidden()
@@ -224,7 +219,7 @@ class BiLSTM_CRF(nn.Module):
             best_path.append(best_tag_id)
         # Pop off the start tag (we dont want to return that to the caller)
         start = best_path.pop()
-        assert start[0] == START_TAG  # Sanity check
+        assert start == START_TAG  # Sanity check
         best_path.reverse()
         return path_score, best_path
 
@@ -244,25 +239,14 @@ class BiLSTM_CRF(nn.Module):
 
 import pickle
 #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device=1
+device=torch.device("cpu")
 # load data from file
-SEQ_LEN=120
-BATCH_SIZE=256
-with open("/home/yixing/pitch_data_processed.pkl", "rb") as f:
+VAL_SIZE=1
+BATCH_SIZE=1
+SEQ_LEN=2369
+with open("/home/yixing/test.pkl", "rb") as f:
     dic = pickle.load(f)
-    train_X = dic["X"]
-    train_Y = dic["Y"]
-
-train_X = torch.tensor(train_X)
-train_Y = torch.tensor(train_Y)
-train_set=data_utils.TensorDataset(train_X, train_Y)
-train_loader=data_utils.DataLoader(dataset=train_set, batch_size=BATCH_SIZE, drop_last=True, shuffle=True)
-
-# In[92]:
-
-
-print(len(train_X))
-print(train_X[0])
+    X_train = dic
 
 CLIP = 10
 input_dim=3
@@ -270,13 +254,11 @@ output_size=60
 START_TAG=output_size-2
 STOP_TAG=output_size-1
 hidden_dim=512
-print_every=1
-plot_every=1
+print_every=50
+plot_every=50
 plot_losses=[]
 print_loss_total=0
 plot_loss_total=0
-
-# Make up some training data
 '''
 seq1=[[[1,2,60]], [[2,5,72]], [[5,9,62]], [[9,10,66]], [[10,17,70]], [[17, 20, 67]]]
 data1=torch.tensor(seq1, dtype=torch.float)
@@ -284,50 +266,43 @@ truth1=[0,2,0,1,1,2]
 label1=torch.tensor(truth1, dtype=torch.long)
 '''
 model = BiLSTM_CRF(input_dim, hidden_dim, output_size, START_TAG, STOP_TAG, BATCH_SIZE).to(device)
-optimizer = optim.SGD(model.parameters(), lr=1e-2, weight_decay=5e-8)
-scheduler = optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.75)
-
-# Make sure prepare_sequence from earlier in the LSTM section is loaded
-for epoch in range(20):  # again, normally you would NOT do 300 epochs, it is toy data
-    print("epoch %i"%epoch)
-    scheduler.step()
-    for i, (X_train, y_train) in enumerate(train_loader):
-        # Step 1. Remember that Pytorch accumulates gradients.
-        # We need to clear them out before each instance
-        X_train=X_train.transpose(0,1).float().contiguous().to(device)
-        y_train=y_train.transpose(0,1).long().contiguous().to(device)
-        #print(X_train, y_train)
-        model.zero_grad()
-
-        # Step 2. Get our inputs ready for the network, that is,
-        # turn them into Tensors of word indices.
-
-        # Step 3. Run our forward pass.
-        loss = (model.neg_log_likelihood(X_train, y_train)).sum()/BATCH_SIZE
-        print(epoch, i, loss)
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP)
-        optimizer.step()
-    name='lstmcrf_train_repeat'+str(epoch)+'.pt'
-    torch.save(model.state_dict(), name)
-    torch.save(model.state_dict(),'bilstmcrf_train_repeat.pt')
-
+model.load_state_dict(torch.load('/home/yixing/summer_project/structural_analysis/train_model/lstmcrf_archive1/lstmcrf_train12.pt'))
+model.eval()
+in_list=[]
+target_list=[]
+for i in range(VAL_SIZE):
+    total_len=0
+    temp_in=[]
+    temp_target=[]
+    X_train=X_train.reshape(SEQ_LEN, BATCH_SIZE, -1).float().contiguous().to(device)
+    scores, path=model(X_train)
+    #print(X_train, "X_train")
+    #print(scores, "scores")
+    #prediction=path.transpose(0,1).cpu().long().contiguous()
+    #print(model(X_train), "hello")
+    prediction=torch.from_numpy(np.array(path)).reshape(SEQ_LEN,)
+    print(prediction, "prediction")
+    prediction=prediction.numpy()
+    X_train=X_train.numpy()
+    #testing prediction/target which to use
+    last_index=np.trim_zeros(prediction, 'b').shape[0]
+    prediction[prediction>1]=0
+    X_in=X_train[0:last_index]
+    target=prediction[0:last_index]
+    #print(X_in, target)
+    #print(last_index)
+    total_len+=last_index
+    temp_in.append(X_in)
+    temp_target.append(target)
+    temp_in=np.concatenate(temp_in)
+    temp_target=np.concatenate(temp_target)
+    print(total_len)
+    print(temp_target)
+    in_list.append(temp_in)
+    target_list.append(temp_target)
+f=open("prediction.pkl", "wb")
+d={"in":in_list, "out":target_list}
+pl.dump(d, f)
+f.close()
 
 # We got it!
-'''
-        print_loss_total+=loss
-        plot_loss_total+=loss
-        
-        if i % print_every == 0:
-            print_loss_avg = print_loss_total / print_every
-            print_loss_total = 0
-            print('(%d %.4f)' % (i, print_loss_avg))
-
-        if i % plot_every == 0:
-            plot_loss_avg = plot_loss_total / plot_every
-            plot_losses.append(plot_loss_avg)
-            plot_loss_total = 0
-
-        # Step 4. Compute the loss, gradients, and update the parameters by
-        # calling optimizer.step()
-'''

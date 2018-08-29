@@ -217,7 +217,7 @@ class CrossValidator:
                     y_train=y_train.transpose(0,1).long().contiguous().to(device)
                     cur_model.zero_grad()
                     loss = (cur_model.neg_log_likelihood(X_train, y_train)).sum()/BATCH_SIZE
-                    if k%1==0:
+                    if k%100==0:
                         print(i, j, k*BATCH_SIZE*1.0/train_len, loss)
                         self.loss_history[i].append(loss.cpu().data)
                     loss.backward()
