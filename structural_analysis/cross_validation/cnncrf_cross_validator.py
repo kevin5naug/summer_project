@@ -11,13 +11,13 @@ import pickle
 from copy import deepcopy
 import random
 
-device = torch.device(0 if torch.cuda.is_available() else "cpu")
+device = torch.device(1 if torch.cuda.is_available() else "cpu")
 #CRF Parameters Pre-set
 SEQ_LEN=120 #Training set sequence length
 BATCH_SIZE=256 #Training batch size
 VAL_SEQ_LEN=880
 VAL_BATCH_SIZE=1
-CLIP = 10
+CLIP = 5
 input_dim=3
 output_size=60
 START_TAG=output_size-2
@@ -210,9 +210,14 @@ class CrossValidator:
                 print("epoch %i"%j)
                 scheduler.step()
                 for k, (X_train, y_train) in enumerate(train_loader):
-                    X_train=X_train.transpose(0,1).float().contiguous().to(device)
-                    y_train=y_train.transpose(0,1).long().contiguous().to(device)
-                    cur_model.zero_grad()
+                    # Step 1. Remember that Pytorch accumulates gradients.
+                    # We need to clear them out before each instance
+                    #print(X_train.size(), y_train.size())
+                    X_train=X_train.permute(1,0,2).float().contiguous().to(device)
+                    y_train=y_train.permute(1,0).long().contiguous().to(device)
+                    #print(X_train.size(), y_train.size(), "after transpose")
+                    #print(X_train, y_train)
+                    model.zero_grad()
                     loss = (cur_model.neg_log_likelihood(X_train, y_train)).sum()/BATCH_SIZE
                     if k%100==0:
                         print(i, j, k*BATCH_SIZE*1.0/train_len, loss)
@@ -221,7 +226,7 @@ class CrossValidator:
                     torch.nn.utils.clip_grad_norm_(cur_model.parameters(), CLIP)
                     optimizer.step()
                 #ATTENTION: Should we add early stopping here?    
-                name='model_train_epoch'+str(j)+'_part'+str(i)+'.pt'
+                name='cnncrf_train_epoch'+str(j)+'_part'+str(i)+'.pt'
                 torch.save(cur_model.state_dict(), name)
                 print("compeleted: ", float(i*self.epochs+j)/float(self.partition*self.epochs))
             
@@ -264,31 +269,19 @@ class CrossValidator:
             print(self.precision_history, self.recall_history)
         return self.precision_history, self.recall_history, self.loss_history
 
-class BiLSTM_CRF(nn.Module):
-
+class CNNCRF(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_size, START_TAG, STOP_TAG, BATCH_SIZE):
-        super(BiLSTM_CRF, self).__init__()
+        super(CNNCRF, self).__init__()
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
-        self.output_size = output_size
-
-        self.lstm1 = nn.LSTM(input_dim, hidden_dim // 2,
-                            num_layers=1, bidirectional=True)
-        self.lstm2 = nn.LSTM(hidden_dim, hidden_dim // 2,
-                            num_layers=1, bidirectional=True)
-        self.lstm3 = nn.LSTM(hidden_dim, hidden_dim // 2,
-                            num_layers=1, bidirectional=True)
-        self.lstm4 = nn.LSTM(hidden_dim, hidden_dim // 2,
-                            num_layers=1, bidirectional=True)
-        self.lstm5 = nn.LSTM(hidden_dim, hidden_dim // 2,
-                            num_layers=1, bidirectional=True)
-        self.lstm6 = nn.LSTM(hidden_dim, hidden_dim // 2,
-                            num_layers=1, bidirectional=True)
-        self.lstm7 = nn.LSTM(hidden_dim, hidden_dim // 2,
-                            num_layers=1, bidirectional=True)
-        # Maps the output of the LSTM into the output space
-        self.fc7 = nn.Linear(self.hidden_dim, self.output_size)
-
+        self.output_size = output_size 
+        
+        self.conv1 = nn.Conv1d(3, self.hidden_dim, 3, padding=1)
+        self.conv2 = nn.Conv1d(self.hidden_dim, self.hidden_dim, 3, padding=1)
+        self.conv3 = nn.Conv1d(self.hidden_dim, self.hidden_dim, 3, padding=1)
+        self.conv4 = nn.Conv1d(self.hidden_dim, self.hidden_dim, 3, padding=1)
+        self.conv5 = nn.Conv1d(self.hidden_dim, self.hidden_dim, 5, padding=2)
+        self.fc6 = nn.Linear(self.hidden_dim, self.output_size)
         # Matrix of transition parameters.  Entry i,j is the score of
         # transitioning *to* i *from* j.
         self.transitions = nn.Parameter(
@@ -304,21 +297,7 @@ class BiLSTM_CRF(nn.Module):
                     self.transitions.data[j,i]=-10000
                 if j>=(i+2):
                     self.transitions.data[j,i]=-10000
-
-        self.hidden1 = self.init_hidden()
-        self.hidden2 = self.init_hidden()
-        self.hidden3 = self.init_hidden()
-        self.hidden4 = self.init_hidden()
-        self.hidden5 = self.init_hidden()
-        self.hidden6 = self.init_hidden()
-        self.hidden7 = self.init_hidden()
-
-    def init_hidden(self, validation=False):
-        if not validation:
-            return (torch.randn(2, BATCH_SIZE, self.hidden_dim // 2, device=device),
-                torch.randn(2, BATCH_SIZE, self.hidden_dim // 2, device=device))
-        else:
-            return(torch.rand(2, VAL_BATCH_SIZE, self.hidden_dim //2, device=device), torch.randn(2, VAL_BATCH_SIZE, self.hidden_dim //2, device=device))
+    
     def _forward_alg(self, feats):
         # Do the forward algorithm to compute the partition function
         init_alphas = torch.full((BATCH_SIZE, self.output_size), -10000., device=device)
@@ -350,43 +329,34 @@ class BiLSTM_CRF(nn.Module):
             forward_var = forward_var.transpose(0,1)
             forward_var =forward_var.contiguous()
             #print(forward_var, "forward_var")
-        #print(forward_var)
         terminal_var = forward_var + self.transitions[STOP_TAG]
         #print(terminal_var)
         alpha = log_sum_exp(terminal_var, dim=1, keepdim=True).reshape(BATCH_SIZE,)
         return alpha
 
-    def _get_lstm_features(self, sequence, validation=False):
-        self.hidden1 = self.init_hidden(validation=validation)
-        self.hidden2 = self.init_hidden(validation=validation)
-        self.hidden3 = self.init_hidden(validation=validation)
-        self.hidden4 = self.init_hidden(validation=validation)
-        self.hidden5 = self.init_hidden(validation=validation)
-        self.hidden6 = self.init_hidden(validation=validation)
-        self.hidden7 = self.init_hidden(validation=validation)
+    def _get_cnn_features(self, sequence):
+        #need to change the shape of sequence to (BATCH_SIZE, -1, SEQ_LEN)
+        sequence=sequence.permute(1,2,0).contiguous()
+        conv_out1 = self.conv1(sequence)
+        conv_in2 = F.relu(conv_out1)
         
-        lstm_out1, self.hidden1 = self.lstm1(sequence, self.hidden1)
-        lstm_in2=F.relu(lstm_out1)
+        conv_out2 = self.conv2(conv_in2)
+        conv_in3 = F.relu(conv_out2)
 
-        lstm_out2, self.hidden2 = self.lstm2(lstm_in2, self.hidden2)
-        lstm_in3=F.relu(lstm_out2)
+        conv_out3 = self.conv3(conv_in3+conv_in2)
+        conv_in4 = F.relu(conv_out3)
 
-        lstm_out3, self.hidden3 = self.lstm3(lstm_in3+lstm_in2, self.hidden3)
-        lstm_in4=F.relu(lstm_out3)
+        conv_out4 = self.conv4(conv_in4+conv_in3)
+        conv_in5 = F.relu(conv_out4)
 
-        lstm_out4, self.hidden4 = self.lstm4(lstm_in4+lstm_in3, self.hidden4)
-        lstm_in5=F.relu(lstm_out4)
+        conv_out5 = self.conv5(conv_in5+conv_in4)
+        conv_out5 = F.relu(conv_out5)
+        conv_out5 = conv_out5.permute(2,0,1).contiguous()
+        x = self.fc6(conv_out5)
         
-        lstm_out5, self.hidden5 = self.lstm5(lstm_in5+lstm_in4, self.hidden5)
-        lstm_in6=F.relu(lstm_out5)
-
-        lstm_out6, self.hidden6 = self.lstm6(lstm_in6+lstm_in5, self.hidden6)
-        lstm_in7=F.relu(lstm_out6)
-
-        lstm_out7, self.hidden7 = self.lstm7(lstm_in7+lstm_in6, self.hidden7)
-        lstm_feats=self.fc7(lstm_out7)
-        
-        return lstm_feats
+        #CRF above takes in tensor of shape (Sequence_len, BATCH_SIZE, -1)
+        #print(x.size(), "cnn_feats")
+        return x
 
     def _score_sentence(self, feats, tags):
         # Gives the score of a provided tag sequence
@@ -396,7 +366,11 @@ class BiLSTM_CRF(nn.Module):
         for i, feat in enumerate(feats):
             score = score + \
                     self.transitions[tags[i + 1], tags[i]] + feat[helper_index, tags[i + 1]]
-        score = score + self.transitions[STOP_TAG, tags[-1]]
+        #print(score)
+        #print(tags[-1])
+        #print(self.transitions[STOP_TAG, tags[-1, :]])
+        score = score + self.transitions[STOP_TAG, tags[-1, :]]
+        #print(score)
         return score
 
     def _viterbi_decode(self, feats):
@@ -454,24 +428,25 @@ class BiLSTM_CRF(nn.Module):
         return path_score, best_path
 
     def neg_log_likelihood(self, sentence, tags):
-        feats = self._get_lstm_features(sentence)
+        feats = self._get_cnn_features(sentence)
         forward_score = self._forward_alg(feats)
         gold_score = self._score_sentence(feats, tags)
+        #print(forward_score, gold_score)
         return forward_score - gold_score
 
     def forward(self, sentence):  # dont confuse this with _forward_alg above.
         # Get the emission scores from the BiLSTM
-        lstm_feats = self._get_lstm_features(sentence, validation=True)
+        lstm_feats = self._get_cnn_features(sentence)
 
         # Find the best path, given the features.
         score, tag_seq = self._viterbi_decode(lstm_feats)
         return score, tag_seq
 
-model=BiLSTM_CRF(input_dim, hidden_dim, output_size, START_TAG, STOP_TAG, BATCH_SIZE)
+model=CNNCRF(input_dim, hidden_dim, output_size, START_TAG, STOP_TAG, BATCH_SIZE)
 validator=CrossValidator(model, compute_acc=compute_acc, batch_size=BATCH_SIZE, epochs=10, lr=1e-2, augment_data=True)
 precision, recall, loss=validator.compute()
 print(precision, recall, loss)
-out_f=open("report.pkl", "wb")
+out_f=open("cnncrf_report.pkl", "wb")
 d={"p":precision, "r": recall, "l":loss}
 pickle.dump(d, out_f)
 out_f.close()
