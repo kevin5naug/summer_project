@@ -132,8 +132,8 @@ def pitch_data():
         train_Y.append(np.array(train_y))
     train_X, train_Y=target_factorize(train_X, train_Y)
     print(train_X.size(), train_Y.size())
-    print(train_X[1])
-    print(train_X[2])
+    #print(train_X[1])
+    #print(train_X[2])
     dic = {"X": train_X, "Y": train_Y}
     f = open("/Users/joker/cnn_pitch_data_processed.pkl", "wb")
     pl.dump(dic, f)
