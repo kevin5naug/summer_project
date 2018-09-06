@@ -51,7 +51,7 @@ def crf_midi_generator(X, Y, Z, n, m, silence, note_length):
 	time = 0
 	tempo = 60
 	MyMIDI.addTempo(track,time, tempo)
-	print(Z["out"][m].shape)
+	print(Z["out"][m].shape[0])
 	print(X[n].shape)
 	count = 0
 	total = 0
@@ -75,7 +75,7 @@ def crf_midi_generator(X, Y, Z, n, m, silence, note_length):
 			#print(X[n][i-1][1]-X[n][i-1][0], X[n][i][0]-X[n][i-1][1])            
 			if i>0 and (X[n][i-1][1]-X[n][i-1][0])<note_length and (X[n][i][0]-X[n][i-1][1])<silence:
 				count+=1    
-	path = "/Users/joker/sample" +str(n)+"_"+str(m)+".mid"
+	path = "/Users/joker/binary_cnncrf/sample" +str(n)+"_"+str(m)+".mid"
 	midifile = open(path, "wb")
 	MyMIDI.writeFile(midifile)
 	midifile.close()
@@ -83,8 +83,8 @@ def crf_midi_generator(X, Y, Z, n, m, silence, note_length):
 
 total_val=0
 count_val=0
-for i in range(85):
-    count, total=crf_midi_generator(train_X, train_Y, lstm_prediction, 1284+i, i, 0.01, 0.3)
+for i in range(150):
+    count, total=crf_midi_generator(train_X, train_Y, lstm_prediction, i, i, 0.01, 0.3)
     total_val+=total
     count_val+=count
 
